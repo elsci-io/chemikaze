@@ -24,7 +24,7 @@ public final class PeriodicTable {
             "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc"
     };
     /**
-     * These are actually used for MF everything. They are roughly sorted by popularity in organic chemistry. Well,
+     * These are actually used for MF. They are roughly sorted by popularity in organic chemistry. Well,
      * at least the first elements are. Doesn't contain elements that would never be used in organic chemistry.
      */
     final static String[] EARTH_SYMBOLS = new String[] {
@@ -34,13 +34,13 @@ public final class PeriodicTable {
             "Ba", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta",
             "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa", "U", "He", "Ne", "Ar"
     };
-    /** Optimization so that we don't have to turn byte[] into String */
+    // Keep symbols as bytes so that we don't have to turn them into String on each lookup.
+    // Each symbol is 2 bytes: for 1-symbol elements like H, the 2nd byte is 0.
     private static final byte[][] EARTH_SYMBOLS_AS_BYTES = buildSymbolsAsBytes();
 
-    /** The size of {@link #ELEMENTHASH_TO_ELEMENT} */
+    /** The size of {@link #ELEMENTHASH_TO_ELEMENT} hash table*/
     private static final int INDEX_BUCKET_CNT = 512,
                              INDEX_HASH_MASK = INDEX_BUCKET_CNT - 1;
-    /** It's padded - every element has 2 bytes. For 1-symbol elements like H, the 2nd byte is 0. */
     private static final byte[/*element ID*/] ELEMENTHASH_TO_ELEMENT = buildIndex();
 
     static int getEarthElementCount() {

@@ -1,0 +1,11 @@
+[package]
+name = "elsci_chemikaze"
+version = "1.0.0"
+edition = "2024"
+
+[[bin]]
+name = "chemikaze-mf"
+path = "src/main/rust/mf.rs"
+
+[profile.release]
+debug = true

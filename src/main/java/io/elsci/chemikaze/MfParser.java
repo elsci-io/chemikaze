@@ -107,11 +107,11 @@ public class MfParser {
     private void consumeSymbolAndCoefficient(byte[] mf, int mfStart, int mfEnd,
                                              byte[] resultElem, int[] resultCoeff) {
         int elementStart = i - mfStart;
-        byte b = mf[i];
-        byte[] symbol = ++i < mfEnd && isSmallLetter(mf[i])// we didn't reach the end and the next byte is small letter
-                ? new byte[]{b, mf[i++]} // increment so that consumeMultiplier() starts parsing the coefficient next
-                : new byte[]{b};
-        resultElem[elementStart] = PeriodicTable.getElementBySymbol(symbol);
+        byte b0 = mf[i],
+             b1 = 0;
+        if(++i < mfEnd && isSmallLetter(mf[i]))// we didn't reach the end and the next byte is small letter
+            b1 = mf[i++];// increment so that consumeMultiplier() starts parsing the coefficient next
+        resultElem[elementStart] = PeriodicTable.getElementBySymbol(b0, b1);
         resultCoeff[elementStart] = consumeMultiplier(mf, mfEnd)/*can handle if i is out of bounds*/;
     }
 

@@ -1,15 +1,17 @@
 package io.elsci.chemikaze;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 /**
  * Each element is represented by a number. This number is NOT its order in the periodic table, so treat it as just an
- * opaque ID. It was chosen so that popular elements end up having a small value - so that if we have arrays of
+ * opaque ID. It was chosen so that popular elements had small values - so that if we have arrays of
  * elements - the filled values were all grouped at the beginning of the array.
  * <p>
  * The element is a {@code byte}, not an {@code int} - because the number of known elements is less than 128.
+ * <p>
  */
 public final class PeriodicTable {
     final static String[] SYMBOLS = new String[] { // all elements sorted by atomic number, not used at the moment
@@ -33,41 +35,53 @@ public final class PeriodicTable {
             "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa", "U", "He", "Ne", "Ar"
     };
     /** Optimization so that we don't have to turn byte[] into String */
-    static final byte[][] EARTH_SYMBOLS_AS_BYTES = buildSymbolsAsBytes();
+    private static final byte[][] EARTH_SYMBOLS_AS_BYTES = buildSymbolsAsBytes();
+
     /** The size of {@link #ELEMENTHASH_TO_ELEMENT} */
-    static final int INDEX_BUCKET_CNT = 512;
-    static final byte[/*element ID*/] ELEMENTHASH_TO_ELEMENT = buildIndex();
+    private static final int INDEX_BUCKET_CNT = 512,
+                             INDEX_HASH_MASK = INDEX_BUCKET_CNT - 1;
+    /** It's padded - every element has 2 bytes. For 1-symbol elements like H, the 2nd byte is 0. */
+    private static final byte[/*element ID*/] ELEMENTHASH_TO_ELEMENT = buildIndex();
 
     static int getEarthElementCount() {
         return EARTH_SYMBOLS.length;
     }
+
     public static String getElementSymbol(byte element) {
         return EARTH_SYMBOLS[element];
     }
-    public static byte getElementBySymbol(byte[] symbol) {
-        int bucket = hash(symbol);
-        byte elementIdx = ELEMENTHASH_TO_ELEMENT[bucket];
-        if(!ArrayUtils.isElementEqual(EARTH_SYMBOLS_AS_BYTES[elementIdx], symbol))
-            throw new IllegalArgumentException("Unrecognized element: " + new String(symbol));
+
+    /**
+     * @param b0 1st byte of the symbol, e.g. "H" in He
+     * @param b1 2nd byte of the symbol, e.g. "e" in He. If it's a 1-byte symbol, then 0.
+     */
+    public static byte getElementBySymbol(byte b0, byte b1) {
+        byte elementIdx = ELEMENTHASH_TO_ELEMENT[hash(b0, b1)];
+        byte[] symbol = EARTH_SYMBOLS_AS_BYTES[elementIdx];
+        if(symbol[0] != b0 || symbol[1] != b1) {
+            byte[] ascii = b1 == 0 ? new byte[] {b0} : new byte[]{b0, b1};
+            throw new IllegalArgumentException("Unrecognized element: " + new String(ascii));
+        }
         return elementIdx;
     }
     public static byte getElementBySymbol(String symbol) {
-        return getElementBySymbol(symbol.getBytes(US_ASCII));
+        byte[] bytes = symbol.getBytes(US_ASCII);
+        int len = bytes.length;
+        if(len == 0 || len > 2)
+            throw new IllegalArgumentException("Unrecognized element: " + symbol);
+        return len == 1 ? getElementBySymbol(bytes[0], (byte)0) : getElementBySymbol(bytes[0], bytes[1]);
     }
 
-    static int hash(String element) {
-        return hash(element.getBytes(US_ASCII), 23, 2);
+    public static int hash(String element) {
+        return hash(element.getBytes(US_ASCII));
     }
-    static int hash(byte[] element) {
-        return hash(element, 23, 2);
+    public static int hash(byte[] element) {
+        return hash(element[0], element.length == 2 ? element[1] : 0);
     }
-    static int hash(String element, int hashMultiplier, int subtract) {
-        return hash(element.getBytes(US_ASCII), hashMultiplier, subtract);
-    }
-    static int hash(byte[] element, int hashMultiplier, int subtract) {
-        return element.length == 1
-            ? element[0]-'A'
-            : (element[0]*hashMultiplier + element[1])&0x01FF;
+    public static int hash(byte b0, byte b1) {
+        // Ran an experiment, and 277 is one of few multipliers that gave no collisions in 512-sized hash table.
+        // Couldn't achieve the same with subtractions or shifts, no matter the order of b0 and b1.
+        return ((b0 * 277) ^ b1) & INDEX_HASH_MASK;
     }
 
     private static byte[] buildIndex() {
@@ -84,8 +98,13 @@ public final class PeriodicTable {
     }
     private static byte[][] buildSymbolsAsBytes() {
         byte[][] result = new byte[EARTH_SYMBOLS.length][];
-        for (int i = 0; i < EARTH_SYMBOLS.length; i++)
-            result[i] = EARTH_SYMBOLS[i].getBytes(US_ASCII);
+        for (int i = 0; i < EARTH_SYMBOLS.length; i++) {
+            byte[] bytes = EARTH_SYMBOLS[i].getBytes(US_ASCII);
+            if(bytes.length == 2)
+                result[i] = bytes;
+            else
+                result[i] = new byte[]{bytes[0], 0};
+        }
         return result;
     }
 }

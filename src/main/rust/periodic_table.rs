@@ -2,7 +2,7 @@ use crate::errors::{ChemikazeError, ErrorKind};
 
 /// They are roughly sorted by popularity in organic chemistry. Well, at least the first elements
 /// are. Doesn't contain elements that would never be used in organic chemistry.
-pub const EARTH_SYMBOLS: [&str; 85] = [
+const EARTH_SYMBOLS: [&str; 85] = [
     "H", "C", "O", "N", "P", "F", "S", "Br", "Cl", "Na", "Li", "Fe", "K", "Ca", "Mg", "Ni", "Al",
     "Pd", "Sc", "V", "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge", "As", "Se", "Ti", "Si", "Be", "B",
     "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Ru", "Rh", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I",
@@ -18,6 +18,8 @@ const INDEX_BUCKET_CNT: usize = 512;
 const INDEX_HASH_MASK: usize = INDEX_BUCKET_CNT - 1;
 const ELEMENTHASH_TO_ELEMENT: [u8; INDEX_BUCKET_CNT] = build_index();
 
+/// `symbol` - "H", "Na", etc. Only the elements that actually exist on the Earth are used,
+///           see `EARTH_SYMBOLS` array.
 pub fn get_element_by_symbol_str(symbol: &str) -> Result<u8, ChemikazeError> {
     let ascii = symbol.as_bytes();
     let mut bytes: [u8; 2] = [0; 2];
@@ -27,9 +29,7 @@ pub fn get_element_by_symbol_str(symbol: &str) -> Result<u8, ChemikazeError> {
     }
     get_element_by_symbol_bytes(bytes)
 }
-///
-/// The 2 bytes that represent symbol ASCII (like ['H', 'e']). For 1-byte symbols: ['H', 0].
-///
+/// `bytes` represent symbol ASCII (like ['H', 'e']). For 1-byte symbols: ['H', 0].
 pub fn get_element_by_symbol_bytes(bytes: [u8; 2]) -> Result<u8, ChemikazeError> {
     let bucket = hash(bytes);
     let element = ELEMENTHASH_TO_ELEMENT[bucket];
@@ -89,4 +89,21 @@ const fn build_symbols_as_bytes() -> [u8; EARTH_SYMBOLS.len()*2] {
         i += 1;
     }
     symbol_bytes
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn returns_element_by_its_symbol_str() {
+        assert_eq!(0u8, get_element_by_symbol_str("H").unwrap());
+        assert_eq!(1u8, get_element_by_symbol_str("C").unwrap());
+        assert_eq!(9u8, get_element_by_symbol_str("Na").unwrap());
+    }
+    #[test]
+    fn returns_element_by_its_symbol_bytes() {
+        assert_eq!(0u8, get_element_by_symbol_bytes(['H' as u8, 0]).unwrap());
+        assert_eq!(82u8, get_element_by_symbol_bytes(['H' as u8, 'e' as u8]).unwrap());
+    }
 }

@@ -25,6 +25,8 @@ public class MfParser {
     private int i = 0;
 
     public AtomCounts parseMf(String mf) {
+        if(mf == null)
+            throw new IllegalArgumentException("Molecular Formula was null");
         return parseMf(mf.getBytes(US_ASCII));
     }
     public AtomCounts parseMf(byte[] mf/*MF encoded in ASCII*/) {
@@ -38,6 +40,8 @@ public class MfParser {
      * @param mfEnd index (exclusive) where the MF actually ends in the array
      */
     public AtomCounts parseMf(byte[] mf, int mfStart, int mfEnd) {
+        if (mfStart >= mfEnd)
+            throw new IllegalArgumentException("Blank Molecular Formula");
         // We create 2 arrays that contain some of the info about what each of the symbol in MF corresponds to:
         // 1.a `elements[]` is filled where we could parse out the symbol. The values correspond to the order of
         //    elements in PeriodicTable.EARTH_SYMBOLS.
@@ -93,9 +97,8 @@ public class MfParser {
             else if (mf[i] == ')') {
                 int chunkEnd = i - 1;
                 i++;
-                int groupCoeff = consumeMultiplier(mf, mfEnd);
-                scaleBackward(mf, mfStart, chunkEnd, currStackDepth--, resultCoeff, groupCoeff);
-                continue; // we incremented i++ inside scaleBackward()
+                scaleBackward(mf, mfStart, chunkEnd, currStackDepth--, resultCoeff, consumeMultiplier(mf, mfEnd));
+                continue;
             }
             i++;// happens on these: (.[]+
         }
@@ -163,14 +166,17 @@ public class MfParser {
     }
 
     private static int indexOfEnd(byte[] mf) {
+        if(mf.length == 0)
+            return 0;
         int i = mf.length - 1;
-        while(i >= 0 && mf[i] == ' ')
+        while(i != 0 && mf[i] == ' ')
             i--;
-        return ++i;// the end is exclusive
+        return i+1;// the end is exclusive
     }
     private static int indexOfStart(byte[] mf) {
+        int len = mf.length;
         int i = 0;
-        while(mf[i] == ' ')
+        while(i < len && mf[i] == ' ')
             i++;
         return i;
     }

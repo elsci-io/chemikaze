@@ -8,17 +8,20 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Objects;
 
-import static io.qala.datagen.RandomShortApi.nullOrBlank;
+import static io.qala.datagen.RandomShortApi.sample;
 import static org.junit.Assert.*;
 
 public class MfParserTest {
 
     private static final MfParser PARSER = new MfParser();
 
-    @Test @Ignore
+    @Test
     public void parseMf_throws_ifNullOrBlankString() {
-        Exception e = assertThrows(IllegalArgumentException.class, () -> parseMf(nullOrBlank()));
-        assertTrue(e.getMessage().startsWith("Expected a Molecular Formula, got: "));
+        Exception e = assertThrows(IllegalArgumentException.class, () -> parseMf(sample("", " ", "  ")));
+        assertTrue(e.getMessage().startsWith("Blank Molecular Formula"));
+
+        e = assertThrows(IllegalArgumentException.class, () -> parseMf(null));
+        assertTrue(e.getMessage().startsWith("Molecular Formula was null"));
     }
     @Test public void parseMf_throws_ifElementNotRecognized() {
         Exception e = assertThrows(IllegalArgumentException.class, () -> parseMf("n"));
@@ -30,15 +33,15 @@ public class MfParserTest {
 
     @Test @Ignore public void parseMf_parsesElementAndCounts() {
         for(int i = 0; i < 10_000_000; i++) {
-//            PARSER.parseMf("H");
-//            PARSER.parseMf("H2");
-//            PARSER.parseMf("CH4");
-//            PARSER.parseMf("CH4CH4");
-//            PARSER.parseMf("(CH4CH4)");
-//            PARSER.parseMf("(CH4CH4)2");
-//            PARSER.parseMf("C(CH4CH4)2");
-//            PARSER.parseMf("(C(OH)2)2P");
-//            PARSER.parseMf("(C(OH))2(S(S))2P");
+            PARSER.parseMf("H");
+            PARSER.parseMf("H2");
+            PARSER.parseMf("CH4");
+            PARSER.parseMf("CH4CH4");
+            PARSER.parseMf("(CH4CH4)");
+            PARSER.parseMf("(CH4CH4)2");
+            PARSER.parseMf("C(CH4CH4)2");
+            PARSER.parseMf("(C(OH)2)2P");
+            PARSER.parseMf("(C(OH))2(S(S))2P");
             PARSER.parseMf("[CH2O]+");
         }
     }

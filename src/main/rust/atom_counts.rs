@@ -1,10 +1,10 @@
-use std::fmt::{Display, Formatter, Pointer, Write};
+use std::fmt::{Display, Formatter};
 use crate::periodic_table;
 use crate::periodic_table::EARTH_ELEMENT_CNT;
 
 #[derive(Debug)]
 pub struct AtomCounts {
-    pub counts: [u8; EARTH_ELEMENT_CNT]
+    pub counts: [u32; EARTH_ELEMENT_CNT]
 }
 
 impl Display for AtomCounts {

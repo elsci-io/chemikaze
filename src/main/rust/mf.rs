@@ -30,11 +30,14 @@ pub fn parse_mf_ascii_chunk(mf: &[u8], mf_start: usize, mf_end: usize) -> Result
     let mut elements: Vec<u8> = vec![0u8; mf_end - mf_start];
     let mut i = mf_start;
 
-    let res = read_symbols_and_coeffs(mf, &mut i, mf_start, mf_end, &mut elements, &mut coeff);
-    if res.is_err() {
-        return Err(res.unwrap_err());
+    let result = read_symbols_and_coeffs(mf, &mut i, mf_start, mf_end, &mut elements, &mut coeff);
+    if result.is_err() {
+        let mf_str = bytes_to_string(&mf[mf_start..mf_end]);
+        let msg = String::from(format!("Invalid Molecular Formula: {mf_str}. Details: {}",
+                                       result.unwrap_err().msg));
+        return Err(ChemikazeError { kind: Parsing, msg });
     }
-    Ok(AtomCounts{counts: [0; EARTH_ELEMENT_CNT]})
+    Ok(AtomCounts{counts: combine_into_atom_counts(&elements, &coeff)})
 }
 
 fn read_symbols_and_coeffs(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: usize,
@@ -42,28 +45,39 @@ fn read_symbols_and_coeffs(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: us
     *i = mf_start;
     while *i < mf_end {
         if between(A, Z, mf[*i]) {
-            let result = consume_symbol_and_coeff(mf, i, mf_start, mf_end, result_elements, coeff);
-            if result.is_err() {
-                let mf_str = bytes_to_string(&mf[mf_start..mf_end]);
-                let msg = String::from(format!("Invalid Molecular Formula: {mf_str}. Details: {}",
-                                               result.unwrap_err().msg));
-                return Err(ChemikazeError {
-                    kind: Parsing,
-                    msg
-                });
-            }
+            consume_symbol_and_coeff(mf, i, mf_start, mf_end, result_elements, coeff)?;
         } else if MF_PUNCTUATION.contains(&mf[*i]) {
             *i += 1;
         } else {
-            let mf_str = bytes_to_string(&mf[mf_start..mf_end]);
             return Err(ChemikazeError {
                 kind: Parsing,
-                msg: String::from(format!("Invalid Molecular Formula: {}", mf_str))
+                msg: String::from(format!("Unexpected symbol: {:?}", char::from(mf[*i])))
             });
         }
     }
     Ok(())
 }
+// fn find_and_apply_group_coeff(mf: &[u8], mf_start: usize, mf_end: usize, resultCoeff: &[u32]) {}
+// private int[] combineIntoAtomCounts(byte[] elements, int[] coefficients) {
+//         int[] counts = new int[PeriodicTable.getEarthElementCount()];
+//         int len = coefficients.length;
+//         for (i = 0; i < len; i++)
+//             if(coefficients[i] != 0)
+//                 counts[elements[i]] += coefficients[i];
+//         return counts;
+//     }
+fn combine_into_atom_counts(elements: &Vec<u8>, coeffs: &Vec<u32>) -> [u32; EARTH_ELEMENT_CNT] {
+    let mut result = [0u32; EARTH_ELEMENT_CNT];
+    let mut i = 0;
+    while i < coeffs.len() {
+        if coeffs[i] > 0 {
+            result[elements[i] as usize] += coeffs[i];
+        }
+        i+=1;
+    }
+    result
+}
+
 fn consume_symbol_and_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: usize,
                             result_elements: &mut Vec<u8>, result_coeffs: &mut Vec<u32>) -> Result<(), ChemikazeError> {
     let result_position = *i - mf_start;
@@ -73,11 +87,7 @@ fn consume_symbol_and_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: u
         b[1] = mf[*i];
         *i += 1;// increment so that consumeMultiplier() starts parsing the coefficient next
     }
-    let result = periodic_table::get_element_by_symbol_bytes(b);
-    if result.is_err() {
-        return Err(result.err().unwrap());
-    }
-    result_elements[result_position] = result?;
+    result_elements[result_position] = periodic_table::get_element_by_symbol_bytes(b)?;
     result_coeffs[result_position] = consume_number(mf, i, mf_end);//can handle if *i is out of bounds
     Ok(())
 }
@@ -87,7 +97,7 @@ fn consume_number(mf: &[u8], i: &mut usize, mf_end: usize) -> u32 {
         return 1;
     }
     let mut multiplier: u32 = 0;
-    while *i < mf_end {
+    while *i < mf_end && is_digit(mf[*i]) {
         multiplier = multiplier * 10 + (mf[*i] - _0) as u32;
         *i += 1;
     }
@@ -119,12 +129,13 @@ mod test {
     #[test]
     fn simple_mf_is_parsed_into_counts() {
         assert_eq!("H2O", parse_mf("H2O").unwrap().to_string());
+        assert_eq!("H2O", parse_mf("HOH").unwrap().to_string());
+        assert_eq!("H132C67O3N8", parse_mf("C67H132N8O3").unwrap().to_string());
     }
     #[test]
     fn empty_mf_creates_empty_counts() {
-        let mf = parse_mf("");
-        assert_eq!(mf.unwrap().counts, [0u8; EARTH_ELEMENT_CNT]);
-        assert_eq!("", parse_mf("H2O").unwrap().to_string());
+        let mf = parse_mf("").unwrap();
+        assert_eq!(mf.counts, [0u32; EARTH_ELEMENT_CNT]);
     }
     #[test]
     fn errs_if_symbol_is_not_known() {
@@ -134,7 +145,7 @@ mod test {
 
         let err = parse_mf("o").err().unwrap();
         assert_eq!(Parsing, err.kind);
-        assert_eq!("Invalid Molecular Formula: o", err.msg);
+        assert_eq!("Invalid Molecular Formula: o. Details: Unexpected symbol: 'o'", err.msg);
     }
     #[test]
     fn errs_if_contains_special_symbols_outside_of_allowed_punctuation() {

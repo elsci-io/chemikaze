@@ -1,8 +1,9 @@
 use crate::errors::{ChemikazeError, ErrorKind};
+use crate::util::bytes_to_string;
 
 /// They are roughly sorted by popularity in organic chemistry. Well, at least the first elements
 /// are. Doesn't contain elements that would never be used in organic chemistry.
-const EARTH_SYMBOLS: [&str; 85] = [
+pub const EARTH_SYMBOLS: [&str; 85] = [
     "H", "C", "O", "N", "P", "F", "S", "Br", "Cl", "Na", "Li", "Fe", "K", "Ca", "Mg", "Ni", "Al",
     "Pd", "Sc", "V", "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge", "As", "Se", "Ti", "Si", "Be", "B",
     "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Ru", "Rh", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I",
@@ -10,9 +11,10 @@ const EARTH_SYMBOLS: [&str; 85] = [
     "Lu", "Hf", "Ta", "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa",
     "U", "He", "Ne", "Ar",
 ];
+pub const EARTH_ELEMENT_CNT: usize = EARTH_SYMBOLS.len();
 /// Same as EARTH_SYMBOLS, but keep symbols as bytes so that we don't have to turn them into
 /// String on each lookup. Each symbol is 2 bytes: for 1-symbol elements like H, the 2nd byte is 0.
-const EARTH_SYMBOLS_AS_BYTES: [u8; EARTH_SYMBOLS.len()*2] = build_symbols_as_bytes();
+const EARTH_SYMBOLS_AS_BYTES: [u8; EARTH_ELEMENT_CNT*2] = build_symbols_as_bytes();
 /// The size of {@link #ELEMENTHASH_TO_ELEMENT} hash table
 const INDEX_BUCKET_CNT: usize = 512;
 const INDEX_HASH_MASK: usize = INDEX_BUCKET_CNT - 1;
@@ -35,9 +37,10 @@ pub fn get_element_by_symbol_bytes(bytes: [u8; 2]) -> Result<u8, ChemikazeError>
     let element = ELEMENTHASH_TO_ELEMENT[bucket];
     let i = (element * 2) as usize;
     if EARTH_SYMBOLS_AS_BYTES[i] != bytes[0] || EARTH_SYMBOLS_AS_BYTES[i+1] != bytes[1] {
-        let element_str = String::from_utf8(Vec::from(bytes)).unwrap_or_else(|_| {
-            format!("Invalid ASCII sequence: [{}]", join(&bytes))
-        });
+        let mut element_str = bytes_to_string(&bytes);
+        if bytes[1] == 0 {
+            element_str = bytes_to_string(&bytes[0..1]);
+        }
         return Err(ChemikazeError {
             msg: String::from(format!("Unknown chemical symbol: {element_str}")),
             kind: ErrorKind::UnknownElement
@@ -50,14 +53,6 @@ pub const fn hash(symbol: [u8; 2]) -> usize {
     // hash table. Couldn't achieve the same with subtractions or shifts, no matter the order of b0
     // and b1.
     ((symbol[0] as usize * 277) ^ symbol[1] as usize) & INDEX_HASH_MASK
-}
-
-fn join(symbol: &[u8]) -> String {
-    let mut s = symbol[0].to_string();
-    for b in &symbol[1..symbol.len() - 1] {
-        s = s + "," + b.to_string().as_str();
-    }
-    s + "," + symbol[symbol.len() - 1].to_string().as_str()
 }
 
 const fn build_index() ->  [u8; INDEX_BUCKET_CNT] {
@@ -76,10 +71,10 @@ const fn build_index() ->  [u8; INDEX_BUCKET_CNT] {
     }
     result
 }
-const fn build_symbols_as_bytes() -> [u8; EARTH_SYMBOLS.len()*2] {
-    let mut symbol_bytes: [u8; EARTH_SYMBOLS.len()*2] = [0u8; EARTH_SYMBOLS.len()*2];
+const fn build_symbols_as_bytes() -> [u8; EARTH_ELEMENT_CNT*2] {
+    let mut symbol_bytes: [u8; EARTH_ELEMENT_CNT*2] = [0u8; EARTH_ELEMENT_CNT*2];
     let mut i = 0;
-    while i < EARTH_SYMBOLS.len() {
+    while i < EARTH_ELEMENT_CNT {
         let b = EARTH_SYMBOLS[i].as_bytes();
         let j = i * 2;
         symbol_bytes[j] = b[0];

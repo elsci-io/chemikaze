@@ -4,8 +4,8 @@ version = "1.0.0"
 edition = "2024"
 
 [[bin]]
-name = "chemikaze-mf"
-path = "src/main/rust/mf.rs"
+name = "chemikaze"
+path = "src/main/rust/cli.rs"
 
 [profile.release]
 debug = true

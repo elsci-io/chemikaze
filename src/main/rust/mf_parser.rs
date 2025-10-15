@@ -1,13 +1,9 @@
 use crate::atom_counts::AtomCounts;
 use crate::errors::ChemikazeError;
 use crate::errors::ErrorKind::Parsing;
+use crate::periodic_table;
 use crate::periodic_table::EARTH_ELEMENT_CNT;
 use crate::util::{*};
-
-mod atom_counts;
-mod periodic_table;
-mod errors;
-mod util;
 
 const MF_PUNCTUATION: [u8;7] = ['(' as u8, ')' as u8, '+' as u8, '-' as u8, '.' as u8, '[' as u8, ']' as u8];
 
@@ -179,14 +175,6 @@ fn consume_number(mf: &[u8], i: &mut usize, mf_end: usize) -> u32 {
         *i += 1;
     }
     multiplier
-}
-
-
-fn main() {
-    match periodic_table::get_element_by_symbol_str("Na") {
-        Ok(element) => println!("{}", element),
-        Err(e) => eprintln!("{}", e.msg)
-    }
 }
 
 #[cfg(test)]

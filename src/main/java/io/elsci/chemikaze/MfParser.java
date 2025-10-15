@@ -16,7 +16,7 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 //    a big file in which case start/end could be somewhere in the middle of the file.
 // * Many methods accept mf, startMf, endMf - it's a single unit that we parse, and it can be considered as a single
 //   parameter
-public class MfParser {
+public final class MfParser {
     private final static byte[] MF_PUNCTUATION = new byte[]{'(', ')', '+', '-', '.', '[', ']'};
     /**
      * Points to the current character in MF that we're looking at. It's shared across methods,

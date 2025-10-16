@@ -27,11 +27,9 @@ pub const fn between(lo: u8, hi: u8, val: u8) -> bool {
     lo <= val && val <= hi
 }
 pub fn index_of_start(ascii: &[u8]) -> usize {
-    if ascii.is_empty() {
-        return 0;
-    }
+    let len = ascii.len();
     let mut i = 0;
-    while i < ascii.len() && ascii[i] == SPACE {
+    while i < len && ascii[i] == SPACE {
         i += 1;
     }
     i

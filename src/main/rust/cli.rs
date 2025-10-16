@@ -24,7 +24,9 @@ fn main() {
 
     start = Instant::now();
     parse_mfs(&lines, repeats);
-    println!("Finished processing {mf_cnt} MFs in {:.3?}", start.elapsed());
+    let elapsed = start.elapsed();
+    println!("[RUST BENCHMARK] {mf_cnt} MFs in {:.2?} ({}MF/s)", elapsed,
+             (mf_cnt as f64 / elapsed.as_secs_f64()) as u32);
 }
 
 fn parse_mfs(mfs: &Vec<&str>, n: usize) -> u32 {

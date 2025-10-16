@@ -23,12 +23,17 @@ public class Cli {
         // *** BENCHMARK ***
         start = System.nanoTime();
         parseMfs(parser, lines, repeats);
-        out.println("Finished processing "+ mfCnt +" MFs in " + durationSince(start));
+        long end = System.nanoTime();
+        int speed = (int)(mfCnt / ((end - start)/1e9));
+
+        out.printf("[JAVA BENCHMARK] %d MFs in %.2fs (%,d MF/s) %n", mfCnt, (end-start)/1e9F, speed);
     }
 
     private static String durationSince(long startNanosec) {
-        double diff = System.nanoTime() - startNanosec;
-        return diff / 1e9 + " s";
+        return duration(startNanosec, System.nanoTime());
+    }
+    private static String duration(long start, long end) {
+        return Math.round(((end - start) / 1e9) * 100)/100 + "s";
     }
 
     @SuppressWarnings({"UnusedReturnValue", "SameParameterValue"})

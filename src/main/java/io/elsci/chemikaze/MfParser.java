@@ -41,7 +41,7 @@ public final class MfParser {
      */
     public AtomCounts parseMf(byte[] mf, int mfStart, int mfEnd) {
         if (mfStart >= mfEnd)
-            throw new IllegalArgumentException("Blank Molecular Formula");
+            throw new IllegalArgumentException("Empty Molecular Formula");
         // We create 2 arrays that contain some of the info about what each of the symbol in MF corresponds to:
         // 1.a `elements[]` is filled where we could parse out the symbol. The values correspond to the order of
         //    elements in PeriodicTable.EARTH_SYMBOLS.
@@ -82,11 +82,10 @@ public final class MfParser {
      *     <li>After parenthesis: (CO)2 - for this we run {@link #scaleBackward(byte[], int, int, int, int[], int)}</li>
      * </ul>
      */
-    private void findAndApplyGroupCoeff(byte[] mf, int mfStart, int mfEnd,
-                                        int[] resultCoeff) {
+    private void findAndApplyGroupCoeff(byte[] mf, int mfStart, int mfEnd, int[] resultCoeff) {
         int currStackDepth = 0;
         out: for (i = mfStart; i < mfEnd;) {
-            scaleForward(mf, mfStart, mfEnd, i, currStackDepth, resultCoeff, consumeMultiplier(mf, mfEnd));
+            scaleForward(mf, mfStart, mfEnd, i, currStackDepth, resultCoeff, consumeCoeff(mf, mfEnd));
             if(i == mfEnd)
                 break;
             while(isAlphanumeric(mf[i])) // skip all letters, numbers, dots
@@ -97,7 +96,7 @@ public final class MfParser {
             else if (mf[i] == ')') {
                 int chunkEnd = i - 1;
                 i++;
-                scaleBackward(mf, mfStart, chunkEnd, currStackDepth--, resultCoeff, consumeMultiplier(mf, mfEnd));
+                scaleBackward(mf, mfStart, chunkEnd, currStackDepth--, resultCoeff, consumeCoeff(mf, mfEnd));
                 continue;
             }
             i++;// happens on these: (.[]+
@@ -109,13 +108,13 @@ public final class MfParser {
 
     private void consumeSymbolAndCoefficient(byte[] mf, int mfStart, int mfEnd,
                                              byte[] resultElem, int[] resultCoeff) {
-        int elementStart = i - mfStart;
+        int resultPosition = i - mfStart;
         byte b0 = mf[i],
              b1 = 0;
         if(++i < mfEnd && isSmallLetter(mf[i]))// we didn't reach the end and the next byte is small letter
             b1 = mf[i++];// increment so that consumeMultiplier() starts parsing the coefficient next
-        resultElem[elementStart] = PeriodicTable.getElementBySymbol(b0, b1);
-        resultCoeff[elementStart] = consumeMultiplier(mf, mfEnd)/*can handle if i is out of bounds*/;
+        resultElem[resultPosition] = PeriodicTable.getElementBySymbol(b0, b1);
+        resultCoeff[resultPosition] = consumeCoeff(mf, mfEnd)/*can handle if i is out of bounds*/;
     }
 
     /**
@@ -148,7 +147,7 @@ public final class MfParser {
         }
     }
 
-    private int consumeMultiplier(byte[] mf, int mfEnd) {// reads a number starting from current position, if no number then 1 is returned
+    private int consumeCoeff(byte[] mf, int mfEnd) {// reads a number starting from current position, if no number then 1 is returned
         if(i >= mfEnd || !isDigit(mf[i]))
             return 1;
         int multiplier = 0;

@@ -33,9 +33,8 @@ pub fn get_element_by_symbol_str(symbol: &str) -> Result<u8, ChemikazeError> {
 }
 /// `bytes` represent symbol ASCII (like ['H', 'e']). For 1-byte symbols: ['H', 0].
 pub fn get_element_by_symbol_bytes(bytes: [u8; 2]) -> Result<u8, ChemikazeError> {
-    let bucket = hash(bytes);
-    let element = ELEMENTHASH_TO_ELEMENT[bucket];
-    let i = (element * 2) as usize;
+    let element = ELEMENTHASH_TO_ELEMENT[hash(bytes)];
+    let i = (element * 2) as usize; // Java impl doesn't need to multiply here
     if EARTH_SYMBOLS_AS_BYTES[i] != bytes[0] || EARTH_SYMBOLS_AS_BYTES[i+1] != bytes[1] {
         let mut element_str = bytes_to_string(&bytes);
         if bytes[1] == 0 {

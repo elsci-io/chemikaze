@@ -23,7 +23,7 @@ pub fn parse_mf_ascii_chunk(mf: &[u8], mf_start: usize, mf_end: usize) -> Result
 
     err_if_invalid_mf(mf, mf_start, mf_end,
                       read_symbols_and_coeffs(mf, &mut i, mf_start, mf_end, &mut elements, &mut coeff)
-    )?;// re-throws error if it happens during the call of the function
+    )?;
     err_if_invalid_mf(mf, mf_start, mf_end,
         find_and_apply_group_coeff(mf, &mut i, mf_start, mf_end, &mut coeff)
     )?;
@@ -68,7 +68,7 @@ fn find_and_apply_group_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end:
     *i = mf_start;
     'out: while *i < mf_end {
         scale_forward(mf, mf_start, mf_end, *i, curr_stack_depth, &mut result_coeffs,
-                      consume_number(mf, i, mf_end));
+                      consume_coeff(mf, i, mf_end));
         if *i >= mf_end {
             break
         }
@@ -87,7 +87,7 @@ fn find_and_apply_group_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end:
             }
             *i += 1;
             scale_backward(mf, mf_start, chunk_end, curr_stack_depth, &mut result_coeffs,
-                           consume_number(mf, i, mf_end));
+                           consume_coeff(mf, i, mf_end));
             curr_stack_depth -= 1;
             continue;
         }
@@ -106,7 +106,7 @@ fn scale_forward(mf: &[u8], mf_start: usize, mf_end: usize,
     if group_coeff == 1 {
         return;// usually the case, as people rarely put coefficients in front of MF
     }
-    let mut depth: i32 = curr_stack_depth;
+    let mut depth = curr_stack_depth;
     while lo < mf_end && depth >= curr_stack_depth {
         if      mf[lo] == OP { depth += 1}
         else if mf[lo] == CP { depth -= 1}
@@ -117,24 +117,12 @@ fn scale_forward(mf: &[u8], mf_start: usize, mf_end: usize,
         lo += 1;
     }
 }
-//     /**
-//      * @param hi index in mf where we start applying {@code groupCoeff} and go left from there
-//      */
-//     private void scaleBackward(byte[] mf, int mfStart, int hi/*inclusive*/,
-//                                int currStackDepth, int[] resultCoeff, int groupCoeff) {
-//         int depth = currStackDepth;
-//         for (; hi >= mfStart && depth <= currStackDepth; hi--) {
-//             if     (mf[hi] == '(') depth++;
-//             else if(mf[hi] == ')') depth--;
-//             resultCoeff[hi - mfStart] *= groupCoeff;
-//         }
-//     }
 fn scale_backward(mf: &[u8], mf_start: usize, mut hi: usize/*inclusive*/,
                   curr_stack_depth: i32, result_coeffs: &mut [u32], group_coeff: u32) {
     let mut depth = curr_stack_depth;
     while hi > mf_start && depth <= curr_stack_depth {
-        if      mf[hi] == OP { depth += 1}
-        else if mf[hi] == CP {depth -= 1}
+        if      mf[hi] == OP { depth += 1 }
+        else if mf[hi] == CP { depth -= 1 }
         result_coeffs[hi - mf_start] *= group_coeff;
         hi -= 1;
     }
@@ -154,18 +142,18 @@ fn combine_into_atom_counts(elements: &Vec<u8>, coeffs: &Vec<u32>) -> [u32; EART
 fn consume_symbol_and_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: usize,
                             result_elements: &mut Vec<u8>, result_coeffs: &mut Vec<u32>) -> Result<(), ChemikazeError> {
     let result_position = *i - mf_start;
-    let mut b: [u8; 2] = [mf[*i], 0];
+    let mut b: [u8; 2] = [mf[*i], 0]; // TODO: switch to 2 variables b0, b1? seems unnecessary..
     *i += 1;
     if *i < mf_end && is_small_letter(mf[*i]) { // we didn't reach the end and the next byte is small letter
         b[1] = mf[*i];
         *i += 1;// increment so that consumeMultiplier() starts parsing the coefficient next
     }
     result_elements[result_position] = periodic_table::get_element_by_symbol_bytes(b)?;
-    result_coeffs[result_position] = consume_number(mf, i, mf_end);//can handle if *i is out of bounds
+    result_coeffs[result_position] = consume_coeff(mf, i, mf_end);//can handle if *i is out of bounds
     Ok(())
 }
 
-fn consume_number(mf: &[u8], i: &mut usize, mf_end: usize) -> u32 {
+fn consume_coeff(mf: &[u8], i: &mut usize, mf_end: usize) -> u32 {
     if *i >= mf_end || !is_digit(mf[*i]) {
         return 1;
     }
@@ -178,7 +166,7 @@ fn consume_number(mf: &[u8], i: &mut usize, mf_end: usize) -> u32 {
 }
 
 #[cfg(test)]
-mod test {
+mod parse_mf_test {
     use super::*;
 
     #[test]
@@ -193,7 +181,7 @@ mod test {
         assert_eq!("H12O6NSCl3Na3", parse_mf(" [(2H2O.NaCl)3S.N]2- ").unwrap().to_string());
     }
     #[test]
-    fn empty_mf_creates_empty_counts() {
+    fn errs_on_empty_mf() {
         assert_eq!("Empty Molecular Formula", parse_mf("").unwrap_err().msg);
         assert_eq!("Empty Molecular Formula", parse_mf(" ").unwrap_err().msg);
         assert_eq!("Empty Molecular Formula", parse_mf("  ").unwrap_err().msg);

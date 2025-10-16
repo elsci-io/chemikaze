@@ -56,13 +56,13 @@ public final class PeriodicTable {
      * @param b1 2nd byte of the symbol, e.g. "e" in He. If it's a 1-byte symbol, then 0.
      */
     public static byte getElementBySymbol(byte b0, byte b1) {
-        byte elementIdx = ELEMENTHASH_TO_ELEMENT[hash(b0, b1)];
-        byte[] symbol = EARTH_SYMBOLS_AS_BYTES[elementIdx];
+        byte element = ELEMENTHASH_TO_ELEMENT[hash(b0, b1)];
+        byte[] symbol = EARTH_SYMBOLS_AS_BYTES[element];
         if(symbol[0] != b0 || symbol[1] != b1) {
             byte[] ascii = b1 == 0 ? new byte[] {b0} : new byte[]{b0, b1};
             throw new IllegalArgumentException("Unrecognized element: " + new String(ascii));
         }
-        return elementIdx;
+        return element;
     }
     public static byte getElementBySymbol(String symbol) {
         byte[] bytes = symbol.getBytes(US_ASCII);

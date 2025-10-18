@@ -1,4 +1,4 @@
-#include "periodict_table.h"
+#include "periodic_table.h"
 
 #include <stdio.h>
 
@@ -10,22 +10,14 @@ static const Ascii EARTH_SYMBOLS[EARTH_ELEMENT_CNT][3] = {
 	"Lu", "Hf", "Ta", "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa",
 	"U", "He", "Ne", "Ar",
 };
-static const Ascii EARTH_SYMBOLS_PADDED[EARTH_ELEMENT_CNT][2] = {
-	"H\0", "C\0", "O\0", "N\0", "P\0", "F\0", "S\0", "Br", "Cl", "Na", "Li", "Fe", "K\0", "Ca", "Mg", "Ni", "Al",
-	"Pd", "Sc", "V\0", "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge", "As", "Se", "Ti", "Si", "Be", "B\0",
-	"Kr", "Rb", "Sr", "Y\0", "Zr", "Nb", "Mo", "Ru", "Rh", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I\0",
-	"Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
-	"Lu", "Hf", "Ta", "Tc", "W\0", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa",
-	"U\0", "He", "Ne", "Ar",
-};
 
 #define INDEX_BUCKET_CNT 512
 #define INDEX_HASH_MASK (INDEX_BUCKET_CNT-1)
 
-unsigned ptable_hash(Ascii b0, Ascii b1) {
+unsigned ptable_hash(const Ascii symbol[static 2]) {
 	// Ran an experiment, and 277 is one of few multipliers that gave no collisions in 512-sized hash table.
 	// Couldn't achieve the same with subtractions or shifts, no matter the order of b0 and b1.
-	return ((b0 * 277) ^ b1) & INDEX_HASH_MASK;
+	return ((symbol[0] * 277) ^ symbol[1]) & INDEX_HASH_MASK;
 }
 
 // precomputed hash table of `hash(EARTH_SYMBOL_PADDED) -> ChemElement`. See main() for the precomputing.
@@ -39,8 +31,18 @@ const ChemElement ELEMENTHASH_TO_ELEMENT[INDEX_BUCKET_CNT] = {
 	[140]=79,[241]=80,[505]=81,[397]=82,[3]=83,[39]=84,
 };
 
-int main() {
+ChemElement get_element_by_symbol(Ascii symbol[static 2]) {
+	ChemElement e = ELEMENTHASH_TO_ELEMENT[ptable_hash(symbol)];
+	if (EARTH_SYMBOLS[e][0] != symbol[0] || EARTH_SYMBOLS[e][1] != symbol[1]) {
+		fprintf(stderr, "Unrecognized element: ...");
+		return 255;
+	}
+	return e;
+}
+
+[[maybe_unused]]
+static void precumputeElementHashTable() {
 	// Precompute values for ELEMENTHASH_TO_ELEMENT
 	for (ChemElement i = 0; i < EARTH_ELEMENT_CNT; i++)
-		printf("[%d]=%d,", ptable_hash(EARTH_SYMBOLS_PADDED[i][0], EARTH_SYMBOLS_PADDED[i][1]), i);
+		printf("[%d]=%d,", ptable_hash((char[]) {EARTH_SYMBOLS[i][0], EARTH_SYMBOLS[i][1]}), i);
 }

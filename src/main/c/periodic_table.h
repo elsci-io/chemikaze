@@ -8,6 +8,8 @@
 typedef unsigned char ChemElement;
 typedef char Ascii;
 
+ChemElement get_element_by_symbol(Ascii symbol[static 2]);
+
 #define CHEMIKAZE_PERIODICT_TABLE_H
 
 #endif //CHEMIKAZE_PERIODICT_TABLE_H

@@ -3,13 +3,21 @@
 //
 
 #ifndef CHEMIKAZE_PERIODICT_TABLE_H
+#define CHEMIKAZE_PERIODICT_TABLE_H
 
-#define EARTH_ELEMENT_CNT 85
 typedef unsigned char ChemElement;
 typedef char Ascii;
 
-ChemElement get_element_by_symbol(Ascii symbol[static 2]);
+#define EARTH_ELEMENT_CNT 85
+static const Ascii EARTH_SYMBOLS[EARTH_ELEMENT_CNT][3] = {
+	"H", "C", "O", "N", "P", "F", "S", "Br", "Cl", "Na", "Li", "Fe", "K", "Ca", "Mg", "Ni", "Al",
+	"Pd", "Sc", "V", "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge", "As", "Se", "Ti", "Si", "Be", "B",
+	"Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Ru", "Rh", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I",
+	"Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+	"Lu", "Hf", "Ta", "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa",
+	"U", "He", "Ne", "Ar",
+};
 
-#define CHEMIKAZE_PERIODICT_TABLE_H
+ChemElement get_element_by_symbol(Ascii symbol[static 2]);
 
 #endif //CHEMIKAZE_PERIODICT_TABLE_H

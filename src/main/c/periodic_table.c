@@ -2,15 +2,6 @@
 
 #include <stdio.h>
 
-static const Ascii EARTH_SYMBOLS[EARTH_ELEMENT_CNT][3] = {
-	"H", "C", "O", "N", "P", "F", "S", "Br", "Cl", "Na", "Li", "Fe", "K", "Ca", "Mg", "Ni", "Al",
-	"Pd", "Sc", "V", "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge", "As", "Se", "Ti", "Si", "Be", "B",
-	"Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Ru", "Rh", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I",
-	"Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
-	"Lu", "Hf", "Ta", "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa",
-	"U", "He", "Ne", "Ar",
-};
-
 #define INDEX_BUCKET_CNT 512
 #define INDEX_HASH_MASK (INDEX_BUCKET_CNT-1)
 

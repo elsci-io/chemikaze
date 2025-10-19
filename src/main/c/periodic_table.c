@@ -8,11 +8,14 @@
 unsigned ptable_hash(const Ascii symbol[static 2]) {
 	// Ran an experiment, and 277 is one of few multipliers that gave no collisions in 512-sized hash table.
 	// Couldn't achieve the same with subtractions or shifts, no matter the order of b0 and b1.
+	//
+	// Need to try gperf in the future: https://www.gnu.org/software/gperf/manual/gperf.html#Description
+	// ReSharper disable once CppRedundantParentheses
 	return ((symbol[0] * 277) ^ symbol[1]) & INDEX_HASH_MASK;
 }
 
 // precomputed hash table of `hash(EARTH_SYMBOL_PADDED) -> ChemElement`. See main() for the precomputing.
-const ChemElement ELEMENTHASH_TO_ELEMENT[INDEX_BUCKET_CNT] = {
+constexpr ChemElement ELEMENTHASH_TO_ELEMENT[INDEX_BUCKET_CNT] = {
 	[488]=0,[127]=1,[379]=2,[102]=3,[144]=4,[446]=5,[463]=6,[280]=7,[19]=8,[7]=9,[85]=10,[475]=11,[295]=12,[30]=13,
 	[310]=14,[15]=15,[57]=16,[244]=17,[428]=18,[270]=19,[10]=20,[13]=21,[319]=22,[16]=23,[268]=24,[178]=25,[182]=26,
 	[38]=27,[426]=28,[141]=29,[422]=30,[271]=31,[362]=32,[341]=33,[216]=34,[445]=35,[77]=36,[272]=37,[4]=38,[318]=39,

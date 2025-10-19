@@ -9,6 +9,9 @@
 
 #include "AtomCounts.h"
 
+constexpr unsigned MF_PUNCTUATION_LEN = 7;
+constexpr char MF_PUNCTUATION[MF_PUNCTUATION_LEN] = {'(', ')', '+', '-', '.', '[', ']'};
+
 bool isBigLetter(char c) {
 	return 'A' <= c && c <= 'Z';
 }
@@ -20,6 +23,12 @@ bool isDigit(char c) {
 }
 bool isAlphanumeric(char c) {
 	return isBigLetter(c) || isSmallLetter(c) || isDigit(c);
+}
+bool isPunctuation(Ascii c) {
+	for (unsigned i = 0; i < MF_PUNCTUATION_LEN; i++)
+		if (c == MF_PUNCTUATION[i])
+			return true;
+	return false;
 }
 
 int consumeCoeff(const Ascii **i, const Ascii *mfEnd) {
@@ -47,10 +56,11 @@ void readSymbolsAndCoeffs(const Ascii *mfStart, const Ascii *mfEnd/*exclusive*/,
 	for (const Ascii *i = mfStart; i < mfEnd;) {
 		if (isBigLetter(*i))
 			consumeSymbolAndCoeff(mfStart, &i, mfEnd, elements, coeff);
-		else if (1) // TODO
+		else if (isPunctuation(*i) || isDigit(*i))
 			i++;
 		else {
 			fprintf(stderr, "Unexpected symbol");// TODO: log the actual symbol
+			return;
 		}
 	}
 }

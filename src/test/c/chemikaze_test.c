@@ -21,6 +21,10 @@ void parseMf__parsesSimpleMfIntoCounts() {
 	assertEqualsString("H2O", AtomCounts_toString(parseMf("HOH")));
 	assertEqualsString("H132C67O3N8", AtomCounts_toString(parseMf("C67H132N8O3")));
 }
+void parseMf__sign_is_ignored_in_counts() {
+	assertEqualsString("H8C2", AtomCounts_toString(parseMf("[CH4CH4]+")));
+	assertEqualsString("H8C2", AtomCounts_toString(parseMf("[CH4CH4]2+")));
+}
 
 int main(void) {
 	register_signals();
@@ -28,4 +32,5 @@ int main(void) {
 	RUN_TEST(getElementBySybmol_returnsChemElement);
 	logInfo("[INFO] Testing parseMf");
 	RUN_TEST(parseMf__parsesSimpleMfIntoCounts);
+	RUN_TEST(parseMf__sign_is_ignored_in_counts);
 }

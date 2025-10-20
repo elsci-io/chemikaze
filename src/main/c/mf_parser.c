@@ -135,6 +135,10 @@ AtomCounts* parseMf(const Ascii *mf, ChemikazeError **error) {
 }
 AtomCounts* parseMfChunk(const Ascii *mf, const Ascii *mfEnd, ChemikazeError **error) {
 	AtomCounts *result = nullptr;
+	if (mf >= mfEnd) {
+		*error = ChemikazeError_new(PARSE, "Empty Molecular Formula");
+		goto free;
+	}
 	size_t mfLen = mfEnd - mf;
 	if (mfLen <= 0)
 		return AtomCounts_new();

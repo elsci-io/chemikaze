@@ -69,6 +69,11 @@ void parseMf__numberAtTheBeginningMultiplesCounts() {
 	assertEqualsString("H4O2", parseMfOrFail("2H2O"));
 	assertEqualsString("", parseMfOrFail("0H2O"));
 }
+void parseMf__errsOnEmptyInput() {
+	assertEqualsString("Empty Molecular Formula", parseMfAndFail(""));
+	assertEqualsString("Empty Molecular Formula", parseMfAndFail(" "));
+	assertEqualsString("Empty Molecular Formula", parseMfAndFail(nullptr));
+}
 void parseMf__throwsIfParenthesesDoNotMatch() {
 #define TSTBEGIN "Couldn't parse "
 #define TSTEND ". Details: the opening and closing parentheses don't match."
@@ -93,4 +98,5 @@ int main(void) {
 	RUN_TEST(parseMf__dotsSeparateComponents_butComponentsAreSummedUp);
 	RUN_TEST(parseMf__complicatedMfIsParsedIntoCounts);
 	RUN_TEST(parseMf__throwsIfParenthesesDoNotMatch);
+	RUN_TEST(parseMf__errsOnEmptyInput);
 }

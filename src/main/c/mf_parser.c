@@ -114,7 +114,7 @@ ChemikazeError* findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exc
 	}
 out:
 	if (currStackDepth)
-		return ChemikazeError_new(PARSE, "The opening and closing parentheses don't match\n");
+		return ChemikazeError_newParsing("the opening and closing parentheses don't match.", mf, mfEnd - mf);
 	return nullptr;
 }
 
@@ -139,7 +139,10 @@ AtomCounts* parseMfChunk(const Ascii *mf, const Ascii *mfEnd, ChemikazeError **e
 	if (mfLen <= 0)
 		return AtomCounts_new();
 
+	// unsigned coeff[mfLen] = {};
+	// ChemElement elements[mfLen] = {};
 	void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
+
 	if (tmpMem == NULL) {
 		*error = ChemikazeError_new(OOM, nullptr);
 		goto free;
@@ -157,7 +160,7 @@ AtomCounts* parseMfChunk(const Ascii *mf, const Ascii *mfEnd, ChemikazeError **e
 	}
 	combineIntoAtomCounts(elements, coeff, mfLen, result);
 free:
-	free(tmpMem);
+	// free(tmpMem);
 	return result;
 }
 

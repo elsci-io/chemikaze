@@ -19,7 +19,8 @@ void assertEqualsString(const char* expected, const char* actual) {
 	if (strcmp(expected, actual) != 0) {
 		logError("Test failed:");
 		char errorMsg[strlen(expected) + strlen(actual) + 50];
-		sprintf(errorMsg, "Strings are not equal:\nExpected (%lu): %s\n  Actual (%lu): %s\n", strlen(expected), expected, strlen(actual), actual);
+		sprintf(errorMsg, "Strings are not equal:\nExpected (%lu): %s\n  Actual (%lu): %s\n",
+				strlen(expected), expected, strlen(actual), actual);
 		logError(errorMsg);
 		assert(false);
 	}

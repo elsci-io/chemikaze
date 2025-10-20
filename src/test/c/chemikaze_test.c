@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "signals.h"
 #include "log.h"
 #include "asserts.h"
@@ -5,11 +7,21 @@
 #include "../../main/c/periodic_table.h"
 #include "../../main/c/mf_parser.h"
 
-char* parseMfOrFail(char *mf) {
+char* parseMfOrFail(const char *mf) {
 	AtomCounts *atoms = parseMfOrPanic(mf);
 	char *toMf = AtomCounts_toString(atoms);
 	AtomCounts_free(atoms);
 	return toMf;
+}
+char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't many tests so let's ignore that
+	ChemikazeError *error;
+	AtomCounts *atoms = parseMf(mf, &error);
+	if (!error) {
+		logError("Expected an error!");
+		AtomCounts_free(atoms);
+		exit(1);
+	}
+	return error->msg;
 }
 
 void getElementBySybmol_returnsChemElement() {
@@ -57,6 +69,15 @@ void parseMf__numberAtTheBeginningMultiplesCounts() {
 	assertEqualsString("H4O2", parseMfOrFail("2H2O"));
 	assertEqualsString("", parseMfOrFail("0H2O"));
 }
+void parseMf__throwsIfParenthesesDoNotMatch() {
+#define TSTBEGIN "Couldn't parse "
+#define TSTEND ". Details: the opening and closing parentheses don't match."
+	assertEqualsString(TSTBEGIN"(C"TSTEND, parseMfAndFail("(C"));
+	assertEqualsString(TSTBEGIN")C"TSTEND, parseMfAndFail(")C"));
+	assertEqualsString(TSTBEGIN"C)"TSTEND, parseMfAndFail("C)"));
+	assertEqualsString(TSTBEGIN"(C))"TSTEND, parseMfAndFail("(C))"));
+	assertEqualsString(TSTBEGIN"(C(OH)2(S(S))2P"TSTEND, parseMfAndFail("(C(OH)2(S(S))2P"));
+}
 
 int main(void) {
 	register_signals();
@@ -71,4 +92,5 @@ int main(void) {
 	RUN_TEST(parseMf__numberAtTheBeginningMultiplesCounts);
 	RUN_TEST(parseMf__dotsSeparateComponents_butComponentsAreSummedUp);
 	RUN_TEST(parseMf__complicatedMfIsParsedIntoCounts);
+	RUN_TEST(parseMf__throwsIfParenthesesDoNotMatch);
 }

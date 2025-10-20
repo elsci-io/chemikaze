@@ -82,12 +82,13 @@ AtomCounts* parseMfChunk(const Ascii *mfStart, const Ascii *mfEnd) {
 		fprintf(stderr, "Empty Molecular Formula");
 		return nullptr;
 	}
-	unsigned *coeff = calloc(mfLen, sizeof(int));
-	ChemElement *elements = calloc(mfLen, sizeof(ChemElement));
-	if (coeff == NULL || elements == NULL) {
+	void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
+	if (tmpMem == NULL) {
 		fprintf(stderr, "Couldn't allocate memory");// TODO: return error?
 		goto free;
 	}
+	unsigned *coeff = tmpMem;
+	ChemElement *elements = tmpMem + mfLen * sizeof(int);
 
 	readSymbolsAndCoeffs(mfStart, mfEnd, elements, coeff);
 	if ((result = AtomCounts_new()) == nullptr) {
@@ -96,7 +97,6 @@ AtomCounts* parseMfChunk(const Ascii *mfStart, const Ascii *mfEnd) {
 	}
 	combineIntoAtomCounts(elements, coeff, mfLen, result);
 free:
-	free(coeff);
-	free(elements);
+	free(tmpMem);
 	return result;
 }

@@ -30,7 +30,7 @@ public final class MfParser {
         return parseMf(mf.getBytes(US_ASCII));
     }
     public AtomCounts parseMf(byte[] mf/*MF encoded in ASCII*/) {
-        return parseMf(mf, indexOfStart(mf), indexOfEnd(mf));
+        return parseMf(mf, indexOfStart(mf), indexOfEnd(mf) + 1);
     }
 
     /**
@@ -170,7 +170,7 @@ public final class MfParser {
         int i = mf.length - 1;
         while(i != 0 && mf[i] == ' ')
             i--;
-        return i+1;// the end is exclusive
+        return i;
     }
     private static int indexOfStart(byte[] mf) {
         int len = mf.length;

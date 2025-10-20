@@ -94,7 +94,7 @@ public class MfParserTest {
     }
     @Test public void complicatedExample() {
         assertEquals("H12O6NSCl3Na3", parseMf("[(2H2O.NaCl)3S.N]2-").toMf());
-//        assertEquals("H12O6NSCl3Na3", parseMf(" [(2H2O.NaCl)3S.N]2- ").toMf());
+        assertEquals("H12O6NSCl3Na3", parseMf(" [(2H2O.NaCl)3S.N]2- ").toMf());
     }
 
     @Test @Ignore

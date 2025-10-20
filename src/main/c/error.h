@@ -1,19 +1,14 @@
-//
-// Created by Stanislav Bashkyrtsev on 10/20/25.
-//
-
 #ifndef ELSCI_CHEMIKAZE_ERROR_H
 #define ELSCI_CHEMIKAZE_ERROR_H
 #include <stddef.h>
 
-#include "periodic_table.h"
-
-typedef enum ChemikazeErrorCode {
+typedef enum {
 	PARSE,
-	OOM
+	OOM,
+	NULL_POINTER,
 } ChemikazeErrorCode;
 
-typedef struct ChemikazeError {
+typedef struct {
 	ChemikazeErrorCode code;
 	char* msg;
 } ChemikazeError;
@@ -24,6 +19,7 @@ typedef struct ChemikazeError {
  * @return
  */
 ChemikazeError* ChemikazeError_new(ChemikazeErrorCode code, char *msg);
-ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const Ascii *mf, size_t mfLen);
+ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const char *mf, size_t mfLen);
 void ChemikazeError_free(ChemikazeError *e);
+char* Chemikaze_toString(const char *str);
 #endif //ELSCI_CHEMIKAZE_ERROR_H

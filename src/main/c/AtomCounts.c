@@ -33,7 +33,7 @@ char* AtomCounts_toString(AtomCounts *obj) {
 		unsigned coeff = obj->counts[e];
 		if (coeff <= 0)
 			continue;
-		for (const Ascii *symbol = EARTH_SYMBOLS[e]; *symbol != '\0'; symbol++)
+		for (const char *symbol = EARTH_SYMBOLS[e]; *symbol != '\0'; symbol++)
 			len++;
 		len += numOfLetters(coeff);
 	}
@@ -44,7 +44,7 @@ char* AtomCounts_toString(AtomCounts *obj) {
 		unsigned coeff = obj->counts[e];
 		if (coeff <= 0)
 			continue;
-		for (const Ascii *symbol = EARTH_SYMBOLS[e]; *symbol != '\0'; symbol++)
+		for (const char *symbol = EARTH_SYMBOLS[e]; *symbol != '\0'; symbol++)
 			result[strPos++] = *symbol;
 		for (unsigned o = orderOf(coeff); o > 0; o /= 10) {// go one digit at a time from left to right
 			result[strPos++] = '0' + coeff / o; // NOLINT(*-narrowing-conversions), coeff/o is always between 0 and 9

@@ -3,9 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "periodic_table.h"
+char* Chemikaze_toString(const char *str) {
+	size_t len = strlen(str);
+	char *buf = malloc(len+1);
+	strcpy(buf, str);
+	return buf;
+}
 
-ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const Ascii *mf, size_t mfLen) {
+ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const char *mf, size_t mfLen) {
 	char *msg = malloc(50 + strlen(staticMsg) + mfLen);
 	strcpy(msg, "Couldn't parse ");
 	strncat(msg, mf, mfLen);

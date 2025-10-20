@@ -25,14 +25,14 @@ bool isDigit(char c) {
 bool isAlphanumeric(char c) {
 	return isBigLetter(c) || isSmallLetter(c) || isDigit(c);
 }
-bool isPunctuation(Ascii c) {
+bool isPunctuation(char c) {
 	for (unsigned i = 0; i < MF_PUNCTUATION_LEN; i++)
 		if (c == MF_PUNCTUATION[i])
 			return true;
 	return false;
 }
 
-int consumeCoeff(const Ascii **i, const Ascii *mfEnd) {
+int consumeCoeff(const char **i, const char *mfEnd) {
 	if (*i >= mfEnd || !isDigit(**i))
 		return 1;
 	int result = 0;
@@ -41,38 +41,42 @@ int consumeCoeff(const Ascii **i, const Ascii *mfEnd) {
 	return result;
 }
 
-void consumeSymbolAndCoeff(const Ascii *mf, const Ascii **i, const Ascii *mfEnd/*exclusive*/,
-                           ChemElement *resultElements, unsigned *resultCoeff) {
+void consumeSymbolAndCoeff(const char *mf, const char **i, const char *mfEnd/*exclusive*/,
+						   ChemElement *resultElements, unsigned *resultCoeff, ChemikazeError **error) {
 	size_t resultPos = *i - mf;
-	Ascii symbol[2] = {**i, 0};
+	char symbol[2] = {**i, 0};
 	if (++(*i) < mfEnd && isSmallLetter(**i)) {
 		symbol[1] = **i;
 		++(*i);
 	}
-	resultElements[resultPos] = ptable_getElementBySymbol(symbol);//todo: handle error
+	if ((resultElements[resultPos] = ptable_getElementBySymbol(symbol, error)) == INVALID_CHEM_ELEMENT)
+		return;
 	resultCoeff[resultPos] = consumeCoeff(i, mfEnd);
 }
 
-ChemikazeError* readSymbolsAndCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff) {
-	for (const Ascii *i = mf; i < mfEnd;) {
-		if (isBigLetter(*i))
-			consumeSymbolAndCoeff(mf, &i, mfEnd, elements, coeff);
-		else if (isPunctuation(*i) || isDigit(*i))
+void readSymbolsAndCoeffs(const char *mf, const char *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff,
+						  ChemikazeError **error) {
+	for (const char *i = mf; i < mfEnd;) {
+		if (isBigLetter(*i)) {
+			consumeSymbolAndCoeff(mf, &i, mfEnd, elements, coeff, error);
+			if (*error)
+				return;
+		} else if (isPunctuation(*i) || isDigit(*i))
 			i++;
 		else {
 			char *msg = malloc(21);
 			strcpy(msg, "Unexpected symbol ");
 			msg[19] = *i;
 			msg[20] = '\0';
-			return ChemikazeError_new(PARSE, msg);
+			*error = ChemikazeError_new(PARSE, msg);
+			return;
 		}
 	}
-	return nullptr;
 }
 /**
  * @param lo the position inside mf where we start applying {@code groupCoeff} and go right from there
  */
-void scaleForward(const Ascii *mf, const Ascii *mfEnd, const Ascii *lo,
+void scaleForward(const char *mf, const char *mfEnd, const char *lo,
 				  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff) {
 	if (groupCoeff == 1)
 		return;// usually the case, as people rarely put coefficients in front of MF
@@ -84,7 +88,7 @@ void scaleForward(const Ascii *mf, const Ascii *mfEnd, const Ascii *lo,
 		resultCoeff[lo - mf] *= groupCoeff;
 	}
 }
-void scaleBackward(const Ascii *mf, const Ascii *hi/*inclusive*/, int currStackDepth, unsigned *resultCoeff, int groupCoeff) {
+void scaleBackward(const char *mf, const char *hi/*inclusive*/, int currStackDepth, unsigned *resultCoeff, int groupCoeff) {
 	int depth = currStackDepth;
 	for (; hi >= mf && depth <= currStackDepth; hi--) {
 		if     (*hi == '(') depth++;
@@ -92,9 +96,9 @@ void scaleBackward(const Ascii *mf, const Ascii *hi/*inclusive*/, int currStackD
 		resultCoeff[hi - mf] *= groupCoeff;
 	}
 }
-ChemikazeError* findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, unsigned *resultCoeffs) {
+ChemikazeError* findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs) {
 	int currStackDepth = 0;
-	const Ascii *i = mf;
+	const char *i = mf;
 	while (i < mfEnd) {
 		scaleForward(mf, mfEnd, i, currStackDepth, resultCoeffs, consumeCoeff(&i, mfEnd));
 		if (i == mfEnd)
@@ -105,7 +109,7 @@ ChemikazeError* findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exc
 		if (*i == '(')
 			currStackDepth++;
 		else if (*i == ')') {
-			const Ascii *chunkEnd = i - 1;
+			const char *chunkEnd = i - 1;
 			i++;
 			scaleBackward(mf, chunkEnd, currStackDepth--, resultCoeffs, consumeCoeff(&i, mfEnd));
 			continue;
@@ -125,24 +129,25 @@ AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *c
 	return result;
 }
 
-AtomCounts* parseMf(const Ascii *mf, ChemikazeError **error) {
+AtomCounts* parseMf(const char *mf, ChemikazeError **error) {
+	if (mf == nullptr) {
+		*error = ChemikazeError_new(NULL_POINTER, Chemikaze_toString("MF is null"));
+		return nullptr;
+	}
 	while (*mf == ' ')
 		mf++;// trim left
-	const Ascii *mfEnd = mf + strlen(mf) - 1;
+	const char *mfEnd = mf + strlen(mf) - 1;
 	while (*mfEnd == ' ')
 		mfEnd--;// trim right
 	return parseMfChunk(mf, mfEnd + 1/*exclusive*/, error);
 }
-AtomCounts* parseMfChunk(const Ascii *mf, const Ascii *mfEnd, ChemikazeError **error) {
+AtomCounts* parseMfChunk(const char *mf, const char *mfEnd, ChemikazeError **error) {
 	AtomCounts *result = nullptr;
 	if (mf >= mfEnd) {
-		*error = ChemikazeError_new(PARSE, "Empty Molecular Formula");
+		*error = ChemikazeError_new(PARSE, Chemikaze_toString("Empty Molecular Formula"));
 		goto free;
 	}
 	size_t mfLen = mfEnd - mf;
-	if (mfLen <= 0)
-		return AtomCounts_new();
-
 	// unsigned coeff[mfLen] = {};
 	// ChemElement elements[mfLen] = {};
 	void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
@@ -154,7 +159,8 @@ AtomCounts* parseMfChunk(const Ascii *mf, const Ascii *mfEnd, ChemikazeError **e
 	unsigned *coeff = tmpMem;
 	ChemElement *elements = tmpMem + mfLen * sizeof(int);
 
-	if ((*error = readSymbolsAndCoeffs(mf, mfEnd, elements, coeff)))
+	readSymbolsAndCoeffs(mf, mfEnd, elements, coeff, error);
+	if (*error)
 		goto free;
 	if ((*error = findAndApplyGroupCoeffs(mf, mfEnd, coeff)))
 		goto free;
@@ -168,8 +174,8 @@ free:
 	return result;
 }
 
-AtomCounts* parseMfOrPanic(const Ascii *mf) {
-	ChemikazeError *error;
+AtomCounts* parseMfOrPanic(const char *mf) {
+	ChemikazeError *error = nullptr;
 	AtomCounts *atoms = parseMf(mf, &error);
 	if (error) {
 		fputs(error->msg, stderr);

@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "AtomCounts.h"
+#include "error.h"
 
 constexpr unsigned MF_PUNCTUATION_LEN = 7;
 constexpr char MF_PUNCTUATION[MF_PUNCTUATION_LEN] = {'(', ')', '+', '-', '.', '[', ']'};
@@ -52,17 +53,21 @@ void consumeSymbolAndCoeff(const Ascii *mf, const Ascii **i, const Ascii *mfEnd/
 	resultCoeff[resultPos] = consumeCoeff(i, mfEnd);
 }
 
-void readSymbolsAndCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff) {
+ChemikazeError* readSymbolsAndCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff) {
 	for (const Ascii *i = mf; i < mfEnd;) {
 		if (isBigLetter(*i))
 			consumeSymbolAndCoeff(mf, &i, mfEnd, elements, coeff);
 		else if (isPunctuation(*i) || isDigit(*i))
 			i++;
 		else {
-			fprintf(stderr, "Unexpected symbol");// TODO: log the actual symbol
-			return;
+			char *msg = malloc(21);
+			strcpy(msg, "Unexpected symbol ");
+			msg[19] = *i;
+			msg[20] = '\0';
+			return ChemikazeError_new(PARSE, msg);
 		}
 	}
+	return nullptr;
 }
 /**
  * @param lo the position inside mf where we start applying {@code groupCoeff} and go right from there
@@ -87,7 +92,7 @@ void scaleBackward(const Ascii *mf, const Ascii *hi/*inclusive*/, int currStackD
 		resultCoeff[hi - mf] *= groupCoeff;
 	}
 }
-void findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, unsigned *resultCoeffs) {
+ChemikazeError* findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, unsigned *resultCoeffs) {
 	int currStackDepth = 0;
 	const Ascii *i = mf;
 	while (i < mfEnd) {
@@ -102,17 +107,15 @@ void findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, u
 		else if (*i == ')') {
 			const Ascii *chunkEnd = i - 1;
 			i++;
-			scaleBackward(mf, chunkEnd, currStackDepth, resultCoeffs, consumeCoeff(&i, mfEnd));
+			scaleBackward(mf, chunkEnd, currStackDepth--, resultCoeffs, consumeCoeff(&i, mfEnd));
 			continue;
 		}
 		i++;// happens on these: (.[]+
 	}
-	out:
-	if (currStackDepth) {
-		fprintf(stderr, "The opening and closing parentheses don't match");
-		return;
-	}
-
+out:
+	if (currStackDepth)
+		return ChemikazeError_new(PARSE, "The opening and closing parentheses don't match\n");
+	return nullptr;
 }
 
 AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *coeffs, size_t len, AtomCounts *result) {
@@ -122,37 +125,49 @@ AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *c
 	return result;
 }
 
-AtomCounts* parseMf(const Ascii *mf) {
+AtomCounts* parseMf(const Ascii *mf, ChemikazeError **error) {
 	while (*mf == ' ')
-		mf++;
+		mf++;// trim left
 	const Ascii *mfEnd = mf + strlen(mf) - 1;
 	while (*mfEnd == ' ')
-		mfEnd--;
-	return parseMfChunk(mf, mfEnd + 1/*eclusive*/);
+		mfEnd--;// trim right
+	return parseMfChunk(mf, mfEnd + 1/*exclusive*/, error);
 }
-AtomCounts* parseMfChunk(const Ascii *mfStart, const Ascii *mfEnd) {
+AtomCounts* parseMfChunk(const Ascii *mf, const Ascii *mfEnd, ChemikazeError **error) {
 	AtomCounts *result = nullptr;
-	size_t mfLen = mfEnd - mfStart;
-	if (mfLen <= 0) {
-		fprintf(stderr, "Empty Molecular Formula");
-		return nullptr;
-	}
+	size_t mfLen = mfEnd - mf;
+	if (mfLen <= 0)
+		return AtomCounts_new();
+
 	void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
 	if (tmpMem == NULL) {
-		fprintf(stderr, "Couldn't allocate memory");// TODO: return error?
+		*error = ChemikazeError_new(OOM, nullptr);
 		goto free;
 	}
 	unsigned *coeff = tmpMem;
 	ChemElement *elements = tmpMem + mfLen * sizeof(int);
 
-	readSymbolsAndCoeffs(mfStart, mfEnd, elements, coeff);
-	findAndApplyGroupCoeffs(mfStart, mfEnd, coeff);
+	if ((*error = readSymbolsAndCoeffs(mf, mfEnd, elements, coeff)))
+		goto free;
+	if ((*error = findAndApplyGroupCoeffs(mf, mfEnd, coeff)))
+		goto free;
 	if ((result = AtomCounts_new()) == nullptr) {
-		fprintf(stderr, "Couldn't allocate memory");// TODO: return error?
+		*error = ChemikazeError_new(OOM, nullptr);
 		goto free;
 	}
 	combineIntoAtomCounts(elements, coeff, mfLen, result);
 free:
 	free(tmpMem);
 	return result;
+}
+
+AtomCounts* parseMfOrPanic(const Ascii *mf) {
+	ChemikazeError *error;
+	AtomCounts *atoms = parseMf(mf, &error);
+	if (error) {
+		fputs(error->msg, stderr);
+		ChemikazeError_free(error);
+		exit(1);
+	}
+	return atoms;
 }

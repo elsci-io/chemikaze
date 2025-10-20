@@ -17,5 +17,6 @@ typedef struct AtomCounts {
 } AtomCounts;
 
 AtomCounts* AtomCounts_new();
+void AtomCounts_free(AtomCounts*);
 char* AtomCounts_toString(AtomCounts*);
 #endif //ELSCI_CHEMIKAZE_ATOMCOUNTS_H

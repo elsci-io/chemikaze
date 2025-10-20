@@ -16,6 +16,8 @@ add_executable(chemikaze
         src/main/c/mf_parser.h
         src/main/c/AtomCounts.c
         src/main/c/AtomCounts.h
+        src/main/c/error.h
+        src/main/c/error.c
 )
 
 add_executable(chemikaze_tests
@@ -29,6 +31,8 @@ add_executable(chemikaze_tests
         src/test/c/asserts.h
         src/test/c/asserts.c
         src/test/c/signals.c
+        src/main/c/error.h
+        src/main/c/error.c
 
         src/test/c/chemikaze_test.c
 )

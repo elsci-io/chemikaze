@@ -14,12 +14,16 @@ int numOfLetters(unsigned val);
 int orderOf(unsigned val);
 
 AtomCounts *AtomCounts_new() {
-	AtomCounts *result = malloc(sizeof(AtomCounts));
+	size_t len = sizeof(AtomCounts) + sizeof(unsigned) * EARTH_ELEMENT_CNT;
+	AtomCounts *result = malloc(len);
 	if (result == NULL)
 		return nullptr;
-	if((result->counts = calloc(EARTH_ELEMENT_CNT, sizeof(unsigned))) == NULL)
-		return nullptr;
-	return result;;
+	memset(result, 0, len);
+	result->counts = (void*) result + sizeof(AtomCounts);
+	return result;
+}
+void AtomCounts_free(AtomCounts *a) {
+	free(a);
 }
 
 

@@ -40,9 +40,9 @@ int consumeCoeff(const Ascii **i, const Ascii *mfEnd) {
 	return result;
 }
 
-void consumeSymbolAndCoeff(const Ascii *mfStart, const Ascii **i, const Ascii *mfEnd/*exclusive*/,
+void consumeSymbolAndCoeff(const Ascii *mf, const Ascii **i, const Ascii *mfEnd/*exclusive*/,
                            ChemElement *resultElements, unsigned *resultCoeff) {
-	size_t resultPos = *i - mfStart;
+	size_t resultPos = *i - mf;
 	Ascii symbol[2] = {**i, 0};
 	if (++(*i) < mfEnd && isSmallLetter(**i)) {
 		symbol[1] = **i;
@@ -52,10 +52,10 @@ void consumeSymbolAndCoeff(const Ascii *mfStart, const Ascii **i, const Ascii *m
 	resultCoeff[resultPos] = consumeCoeff(i, mfEnd);
 }
 
-void readSymbolsAndCoeffs(const Ascii *mfStart, const Ascii *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff) {
-	for (const Ascii *i = mfStart; i < mfEnd;) {
+void readSymbolsAndCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff) {
+	for (const Ascii *i = mf; i < mfEnd;) {
 		if (isBigLetter(*i))
-			consumeSymbolAndCoeff(mfStart, &i, mfEnd, elements, coeff);
+			consumeSymbolAndCoeff(mf, &i, mfEnd, elements, coeff);
 		else if (isPunctuation(*i) || isDigit(*i))
 			i++;
 		else {
@@ -63,6 +63,56 @@ void readSymbolsAndCoeffs(const Ascii *mfStart, const Ascii *mfEnd/*exclusive*/,
 			return;
 		}
 	}
+}
+/**
+ * @param lo the position inside mf where we start applying {@code groupCoeff} and go right from there
+ */
+void scaleForward(const Ascii *mf, const Ascii *mfEnd, const Ascii *lo,
+				  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff) {
+	if (groupCoeff == 1)
+		return;// usually the case, as people rarely put coefficients in front of MF
+	for (int depth = currStackDepth; lo < mfEnd && depth >= currStackDepth; lo++) {
+		if     (*lo == '(') depth++;
+		else if(*lo == ')') depth--;
+		else if(*lo == '.' && depth == currStackDepth)
+			break;
+		resultCoeff[lo - mf] *= groupCoeff;
+	}
+}
+void scaleBackward(const Ascii *mf, const Ascii *hi/*inclusive*/, int currStackDepth, unsigned *resultCoeff, int groupCoeff) {
+	int depth = currStackDepth;
+	for (; hi >= mf && depth <= currStackDepth; hi--) {
+		if     (*hi == '(') depth++;
+		else if(*hi == ')') depth--;
+		resultCoeff[hi - mf] *= groupCoeff;
+	}
+}
+void findAndApplyGroupCoeffs(const Ascii *mf, const Ascii *mfEnd/*exclusive*/, unsigned *resultCoeffs) {
+	int currStackDepth = 0;
+	const Ascii *i = mf;
+	while (i < mfEnd) {
+		scaleForward(mf, mfEnd, i, currStackDepth, resultCoeffs, consumeCoeff(&i, mfEnd));
+		if (i == mfEnd)
+			break;
+		while (isAlphanumeric(*i)) // skip all letters, numbers, dots
+			if (i++ >= mfEnd)
+				goto out;
+		if (*i == '(')
+			currStackDepth++;
+		else if (*i == ')') {
+			const Ascii *chunkEnd = i - 1;
+			i++;
+			scaleBackward(mf, chunkEnd, currStackDepth, resultCoeffs, consumeCoeff(&i, mfEnd));
+			continue;
+		}
+		i++;// happens on these: (.[]+
+	}
+	out:
+	if (currStackDepth) {
+		fprintf(stderr, "The opening and closing parentheses don't match");
+		return;
+	}
+
 }
 
 AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *coeffs, size_t len, AtomCounts *result) {
@@ -73,7 +123,12 @@ AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *c
 }
 
 AtomCounts* parseMf(const Ascii *mf) {
-	return parseMfChunk(mf, mf + strlen(mf));
+	while (*mf == ' ')
+		mf++;
+	const Ascii *mfEnd = mf + strlen(mf) - 1;
+	while (*mfEnd == ' ')
+		mfEnd--;
+	return parseMfChunk(mf, mfEnd + 1/*eclusive*/);
 }
 AtomCounts* parseMfChunk(const Ascii *mfStart, const Ascii *mfEnd) {
 	AtomCounts *result = nullptr;
@@ -91,6 +146,7 @@ AtomCounts* parseMfChunk(const Ascii *mfStart, const Ascii *mfEnd) {
 	ChemElement *elements = tmpMem + mfLen * sizeof(int);
 
 	readSymbolsAndCoeffs(mfStart, mfEnd, elements, coeff);
+	findAndApplyGroupCoeffs(mfStart, mfEnd, coeff);
 	if ((result = AtomCounts_new()) == nullptr) {
 		fprintf(stderr, "Couldn't allocate memory");// TODO: return error?
 		goto free;

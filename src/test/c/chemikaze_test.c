@@ -6,13 +6,13 @@
 #include "../../main/c/mf_parser.h"
 
 void getElementBySybmol_returnsChemElement() {
-	ChemElement e = get_element_by_symbol("H");
+	ChemElement e = ptable_getElementBySymbol("H");
 	assertEqualsUnsigned(0, e);
 
-	e = get_element_by_symbol("C");
+	e = ptable_getElementBySymbol("C");
 	assertEqualsUnsigned(1, e);
 
-	e = get_element_by_symbol("Cl");
+	e = ptable_getElementBySymbol("Cl");
 	assertEqualsUnsigned(8, e);
 }
 

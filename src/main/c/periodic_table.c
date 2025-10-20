@@ -5,7 +5,7 @@
 #define INDEX_BUCKET_CNT 512
 #define INDEX_HASH_MASK (INDEX_BUCKET_CNT-1)
 
-unsigned ptable_hash(const Ascii symbol[static 2]) {
+unsigned hash(const Ascii symbol[static 2]) {
 	// Ran an experiment, and 277 is one of few multipliers that gave no collisions in 512-sized hash table.
 	// Couldn't achieve the same with subtractions or shifts, no matter the order of b0 and b1.
 	//
@@ -25,8 +25,8 @@ constexpr ChemElement ELEMENTHASH_TO_ELEMENT[INDEX_BUCKET_CNT] = {
 	[140]=79,[241]=80,[505]=81,[397]=82,[3]=83,[39]=84,
 };
 
-ChemElement get_element_by_symbol(Ascii symbol[static 2]) {
-	ChemElement e = ELEMENTHASH_TO_ELEMENT[ptable_hash(symbol)];
+ChemElement ptable_getElementBySymbol(Ascii symbol[static 2]) {
+	ChemElement e = ELEMENTHASH_TO_ELEMENT[hash(symbol)];
 	if (EARTH_SYMBOLS[e][0] != symbol[0] || EARTH_SYMBOLS[e][1] != symbol[1]) {
 		fprintf(stderr, "Unrecognized element: ...");
 		return 255;
@@ -35,8 +35,8 @@ ChemElement get_element_by_symbol(Ascii symbol[static 2]) {
 }
 
 [[maybe_unused]]
-static void precumputeElementHashTable() {
+static void precomputeElementHashTable() {
 	// Precompute values for ELEMENTHASH_TO_ELEMENT
 	for (ChemElement i = 0; i < EARTH_ELEMENT_CNT; i++)
-		printf("[%d]=%d,", ptable_hash((char[]) {EARTH_SYMBOLS[i][0], EARTH_SYMBOLS[i][1]}), i);
+		printf("[%d]=%d,", hash((char[]) {EARTH_SYMBOLS[i][0], EARTH_SYMBOLS[i][1]}), i);
 }

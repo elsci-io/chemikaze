@@ -48,7 +48,7 @@ void consumeSymbolAndCoeff(const Ascii *mfStart, const Ascii **i, const Ascii *m
 		symbol[1] = **i;
 		++(*i);
 	}
-	resultElements[resultPos] = get_element_by_symbol(symbol);//todo: handle error
+	resultElements[resultPos] = ptable_getElementBySymbol(symbol);//todo: handle error
 	resultCoeff[resultPos] = consumeCoeff(i, mfEnd);
 }
 

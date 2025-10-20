@@ -18,6 +18,6 @@ static const Ascii EARTH_SYMBOLS[EARTH_ELEMENT_CNT][3] = {
 	"U", "He", "Ne", "Ar",
 };
 
-ChemElement get_element_by_symbol(Ascii symbol[static 2]);
+ChemElement ptable_getElementBySymbol(Ascii symbol[static 2]);
 
 #endif //CHEMIKAZE_PERIODICT_TABLE_H

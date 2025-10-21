@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "signals.h"
+#include "../../main/c/signals.h"
 #include "log.h"
 #include "asserts.h"
 #include "test_util.h"

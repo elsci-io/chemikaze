@@ -20,12 +20,12 @@ set(COMMON_SRCS
         ${SRC_ROOT}/AtomCounts.h
         ${SRC_ROOT}/error.c
         ${SRC_ROOT}/error.h
+        ${SRC_ROOT}/signals.c
 )
 set(TEST_SRCS
         ${TST_ROOT}/log.c
-        ${TST_ROOT}/asserts.h
         ${TST_ROOT}/asserts.c
-        ${TST_ROOT}/signals.c
+        ${TST_ROOT}/asserts.h
 )
 
 add_executable(chemikaze ${COMMON_SRCS} ${SRC_ROOT}/cli.c)

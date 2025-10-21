@@ -47,10 +47,14 @@ void consumeSymbolAndCoeff(const char *mf, const char **i, const char *mfEnd/*ex
 	char symbol[2] = {**i, 0};
 	if (++(*i) < mfEnd && isSmallLetter(**i)) {
 		symbol[1] = **i;
-		++(*i);
+		++*i;
 	}
-	if ((resultElements[resultPos] = ptable_getElementBySymbol(symbol, error)) == INVALID_CHEM_ELEMENT)
+	if ((resultElements[resultPos] = ptable_getElementBySymbol(symbol)) == INVALID_CHEM_ELEMENT) {
+		char *msg = malloc(30);
+		sprintf(msg, "Unknown chemical symbol: %c%c", symbol[0], symbol[1]);
+		*error = ChemikazeError_newParsing(msg, mf, mfEnd-mf);
 		return;
+	}
 	resultCoeff[resultPos] = consumeCoeff(i, mfEnd);
 }
 
@@ -64,17 +68,22 @@ void readSymbolsAndCoeffs(const char *mf, const char *mfEnd/*exclusive*/, ChemEl
 		} else if (isPunctuation(*i) || isDigit(*i))
 			i++;
 		else {
-			char *msg = malloc(21);
-			strcpy(msg, "Unexpected symbol ");
-			msg[19] = *i;
-			msg[20] = '\0';
-			*error = ChemikazeError_new(PARSE, msg);
+			char *msg = malloc(22);
+			sprintf(msg, "Unexpected symbol: %c", *i);
+			*error = ChemikazeError_newParsing(msg, mf, mfEnd-mf);
 			return;
 		}
 	}
 }
 /**
+ * Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.
+ *
+ * @param mf the start of the MF string
+ * @param mfEnd the end of the MF string, exclusive
  * @param lo the position inside mf where we start applying {@code groupCoeff} and go right from there
+ * @param currStackDepth how deep in () we are
+ * @param resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
+ * @param groupCoeff the coefficient to scale the whole group of symbols
  */
 void scaleForward(const char *mf, const char *mfEnd, const char *lo,
 				  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff) {
@@ -118,7 +127,7 @@ ChemikazeError* findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclu
 	}
 out:
 	if (currStackDepth)
-		return ChemikazeError_newParsing("the opening and closing parentheses don't match.", mf, mfEnd - mf);
+		return ChemikazeError_newParsing("The opening and closing parentheses don't match.", mf, mfEnd - mf);
 	return nullptr;
 }
 

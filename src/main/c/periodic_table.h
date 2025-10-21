@@ -19,6 +19,6 @@ static const char EARTH_SYMBOLS[EARTH_ELEMENT_CNT][3] = {
 	"U", "He", "Ne", "Ar",
 };
 
-ChemElement ptable_getElementBySymbol(char symbol[static 2], ChemikazeError **error);
+ChemElement ptable_getElementBySymbol(char symbol[static 2]);
 
 #endif //CHEMIKAZE_PERIODICT_TABLE_H

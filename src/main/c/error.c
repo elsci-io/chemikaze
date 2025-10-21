@@ -14,7 +14,7 @@ ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const char *mf,
 	char *msg = malloc(50 + strlen(staticMsg) + mfLen);
 	strcpy(msg, "Couldn't parse ");
 	strncat(msg, mf, mfLen);
-	strcat(msg, ". Details: ");
+	strcat(msg, ". ");
 	strcat(msg, staticMsg);
 	return ChemikazeError_new(PARSE, msg);
 }

@@ -25,14 +25,13 @@ char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't
 }
 
 void getElementBySybmol_returnsChemElement() {
-	ChemikazeError *error = nullptr;
-	ChemElement e = ptable_getElementBySymbol("H", &error);
+	ChemElement e = ptable_getElementBySymbol("H");
 	assertEqualsUnsigned(0, e);
 
-	e = ptable_getElementBySymbol("C", &error);
+	e = ptable_getElementBySymbol("C");
 	assertEqualsUnsigned(1, e);
 
-	e = ptable_getElementBySymbol("Cl", &error);
+	e = ptable_getElementBySymbol("Cl");
 	assertEqualsUnsigned(8, e);
 }
 
@@ -77,7 +76,7 @@ void parseMf__errsOnEmptyInput() {
 }
 void parseMf__errsIfParenthesesDoNotMatch() {
 #define TSTBEGIN "Couldn't parse "
-#define TSTEND ". Details: the opening and closing parentheses don't match."
+#define TSTEND ". The opening and closing parentheses don't match."
 	assertEqualsString(TSTBEGIN"(C"TSTEND, parseMfAndFail("(C"));
 	assertEqualsString(TSTBEGIN")C"TSTEND, parseMfAndFail(")C"));
 	assertEqualsString(TSTBEGIN"C)"TSTEND, parseMfAndFail("C)"));
@@ -87,8 +86,9 @@ void parseMf__errsIfParenthesesDoNotMatch() {
 #undef TSTEND
 }
 void parseMf_errsIfElementNotRecognized() {
-	assertEqualsString("Couldn't parse A. Details: Unknown chemical symbol: A", parseMfAndFail("A"));
-	assertEqualsString("Couldn't parse i2. Details: Unknown chemical symbol: i2", parseMfAndFail("i2"));
+	assertEqualsString("Couldn't parse A. Unknown chemical symbol: A", parseMfAndFail("A"));
+	assertEqualsString("Couldn't parse A2. Unknown chemical symbol: A", parseMfAndFail("A2"));
+	assertEqualsString("Couldn't parse i2. Unexpected symbol: i", parseMfAndFail("i2"));
 }
 
 int main(void) {

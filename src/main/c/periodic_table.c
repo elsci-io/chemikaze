@@ -28,14 +28,10 @@ constexpr ChemElement ELEMENTHASH_TO_ELEMENT[INDEX_BUCKET_CNT] = {
 	[140]=79,[241]=80,[505]=81,[397]=82,[3]=83,[39]=84,
 };
 
-ChemElement ptable_getElementBySymbol(char symbol[static 2], ChemikazeError **error) {
+ChemElement ptable_getElementBySymbol(char symbol[static 2]) {
 	ChemElement e = ELEMENTHASH_TO_ELEMENT[hash(symbol)];
-	if (EARTH_SYMBOLS[e][0] != symbol[0] || EARTH_SYMBOLS[e][1] != symbol[1]) {
-		char *msg = malloc(30);
-		sprintf(msg, "Unknown chemical symbol: %c%c", symbol[0], symbol[1]);
-		*error = ChemikazeError_new(PARSE, "Unknown chemical symbol: ");
+	if (EARTH_SYMBOLS[e][0] != symbol[0] || EARTH_SYMBOLS[e][1] != symbol[1])
 		return INVALID_CHEM_ELEMENT;
-	}
 	return e;
 }
 

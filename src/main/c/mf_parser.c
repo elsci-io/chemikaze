@@ -154,19 +154,19 @@ AtomCounts* parseMfChunk(const char *mf, const char *mfEnd, ChemikazeError **err
 	AtomCounts *result = nullptr;
 	if (mf >= mfEnd) {
 		*error = ChemikazeError_new(PARSE, Chemikaze_toString("Empty Molecular Formula"));
-		goto free;
+		return nullptr;
 	}
 	size_t mfLen = mfEnd - mf;
-	// unsigned coeff[mfLen] = {};
-	// ChemElement elements[mfLen] = {};
-	void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
+	unsigned coeff[mfLen] = {};
+	ChemElement elements[mfLen] = {};
+	// void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
 
-	if (tmpMem == NULL) {
-		*error = ChemikazeError_new(OOM, nullptr);
-		goto free;
-	}
-	unsigned *coeff = tmpMem;
-	ChemElement *elements = tmpMem + mfLen * sizeof(int);
+	// if (tmpMem == NULL) {
+		// *error = ChemikazeError_new(OOM, nullptr);
+		// goto free;
+	// }
+	// unsigned *coeff = tmpMem;
+	// ChemElement *elements = tmpMem + mfLen * sizeof(int);
 
 	readSymbolsAndCoeffs(mf, mfEnd, elements, coeff, error);
 	if (*error)
@@ -178,7 +178,7 @@ AtomCounts* parseMfChunk(const char *mf, const char *mfEnd, ChemikazeError **err
 		goto free;
 	}
 	combineIntoAtomCounts(elements, coeff, mfLen, result);
-free:
+free: // Still playing between allocating tmp memory on heap vs arrays on stack. stack seems to be a little better.
 	// free(tmpMem);
 	return result;
 }

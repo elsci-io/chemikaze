@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "mf_parser.h"
 #include "signals.h"
@@ -37,8 +38,8 @@ size_t readAllBytes(char *filepath, char **buf) {
 	return size;
 }
 
-void parseAllMfs(char *buf, size_t size) {
-	unsigned hcount = 0, mfcount = 0;
+unsigned parseAllMfs(char *buf, size_t size) {
+	unsigned mfcount = 0;
 	for (size_t i = 0; i < size; mfcount++, i++) {
 		char *mf = buf + i++;
 		while (*(buf + i) != '\n' && i != size)
@@ -49,10 +50,9 @@ void parseAllMfs(char *buf, size_t size) {
 			perror(error->msg);
 			exit(1);
 		}
-		hcount += counts->counts[0];
 		AtomCounts_free(counts);
 	}
-	printf("Parsed %u Hydrogens out of %u MFs\n", hcount, mfcount);
+	return mfcount;
 }
 
 int main(int argc, [[maybe_unused]] char **argv) {
@@ -63,7 +63,21 @@ int main(int argc, [[maybe_unused]] char **argv) {
 	}
 	char *buf = nullptr;
 	size_t size = readAllBytes(argv[1], &buf);
-	parseAllMfs(buf, size);
+
+	int repeats = 50;
+	unsigned mfInFile = 0;
+
+	clock_t start = clock();
+	for (int i = 0; i < repeats; i++)
+		mfInFile = parseAllMfs(buf, size);
+	printf("Finished warmup in %f sec\n", (double)(clock()-start)/CLOCKS_PER_SEC);
+
+	unsigned mfCnt = repeats * mfInFile;
+	start = clock();
+	for (int i = 0; i < repeats; i++)
+		parseAllMfs(buf, size);
+	double elapsed = (double)(clock()-start)/CLOCKS_PER_SEC;
+	printf("[C BENCHMARK] %d MFs in %f sec (%d MF/s)\n", mfCnt, elapsed, (int) (mfCnt/elapsed));
 
 	free(buf);
 	return 0;

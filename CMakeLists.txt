@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 4.0)
 project(elsci_chemikaze C)
 
-set(CMAKE_C_FLAGS "-Wall -Werror -Wextra")
+#set(CMAKE_OSX_ARCHITECTURES "arm64")
+set(CMAKE_C_FLAGS "-Wall -Werror -Wextra -O3")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -ggdb")
 set(CMAKE_C_STANDARD 23)
 

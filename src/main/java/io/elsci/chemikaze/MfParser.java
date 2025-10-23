@@ -166,7 +166,7 @@ public final class MfParser {
 
     private static int indexOfEnd(byte[] mf) {
         if(mf.length == 0)
-            return 0;
+            return -1;
         int i = mf.length - 1;
         while(i != 0 && mf[i] == ' ')
             i--;

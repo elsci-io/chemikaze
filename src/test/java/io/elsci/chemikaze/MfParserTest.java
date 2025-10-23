@@ -17,7 +17,11 @@ public class MfParserTest {
 
     @Test
     public void parseMf_throws_ifNullOrBlankString() {
-        Exception e = assertThrows(IllegalArgumentException.class, () -> parseMf(sample("", " ", "  ")));
+        Exception e = assertThrows(IllegalArgumentException.class, () -> parseMf(sample("")));
+        assertTrue(e.getMessage().startsWith("Empty Molecular Formula"));
+        e = assertThrows(IllegalArgumentException.class, () -> parseMf(sample(" ")));
+        assertTrue(e.getMessage().startsWith("Empty Molecular Formula"));
+        e = assertThrows(IllegalArgumentException.class, () -> parseMf(sample("  ")));
         assertTrue(e.getMessage().startsWith("Empty Molecular Formula"));
 
         //noinspection DataFlowIssue

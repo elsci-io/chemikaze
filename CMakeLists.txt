@@ -1,32 +1,12 @@
-cmake_minimum_required(VERSION 4.0)
-project(elsci_chemikaze C)
+cmake_minimum_required(VERSION 3.10)
+project(ChemParser CXX)
 
-set(CMAKE_C_FLAGS "-Wall -Werror -Wextra")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -ggdb")
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target/cmake/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target/cmake/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target/cmake/bin)
+file(GLOB_RECURSE SOURCES "src/main/cpp/*.cpp")
 
-set(SRC_ROOT src/main/c)
-set(TST_ROOT src/test/c)
-set(COMMON_SRCS
-        ${SRC_ROOT}/periodic_table.c
-        ${SRC_ROOT}/periodic_table.h
-        ${SRC_ROOT}/mf_parser.c
-        ${SRC_ROOT}/mf_parser.h
-        ${SRC_ROOT}/AtomCounts.c
-        ${SRC_ROOT}/AtomCounts.h
-        ${SRC_ROOT}/error.c
-        ${SRC_ROOT}/error.h
-        ${SRC_ROOT}/signals.c
-)
-set(TEST_SRCS
-        ${TST_ROOT}/log.c
-        ${TST_ROOT}/asserts.c
-        ${TST_ROOT}/asserts.h
-)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -mtune=native -flto -fno-exceptions -fno-rtti -DNDEBUG")
 
-add_executable(chemikaze ${COMMON_SRCS} ${SRC_ROOT}/cli.c)
-add_executable(chemikaze_tests ${COMMON_SRCS} ${TEST_SRCS} ${TST_ROOT}/chemikaze_test.c)
+add_executable(${PROJECT_NAME} ${SOURCES})
+

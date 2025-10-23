@@ -1,0 +1,1 @@
+/usr/lib/ccache/c++  -O3 -march=native -mtune=native -flto -fno-exceptions -fno-rtti -DNDEBUG CMakeFiles/ChemParser.dir/src/main/cpp/main.cpp.o CMakeFiles/ChemParser.dir/src/main/cpp/parser.cpp.o CMakeFiles/ChemParser.dir/src/main/cpp/tests.cpp.o -o ChemParser 

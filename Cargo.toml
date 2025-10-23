@@ -9,3 +9,6 @@ path = "src/main/rust/cli.rs"
 
 [profile.release]
 debug = true
+
+[dependencies]
+phf = { version = "0.11", features = ["macros"] }

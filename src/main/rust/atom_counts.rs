@@ -11,7 +11,7 @@ impl Display for AtomCounts {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for (i, val) in self.counts.iter().enumerate() {
             if *val != 0 {
-                f.write_str(periodic_table::EARTH_SYMBOLS[i])?;
+                f.write_str(std::str::from_utf8(periodic_table::EARTH_SYMBOLS[i]).unwrap())?;
             }
             if *val > 1 {
                 f.write_str(format!("{}", *val).as_str())?;

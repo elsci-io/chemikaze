@@ -10,112 +10,24 @@ const MF_PUNCTUATION: [u8;7] = ['(' as u8, ')' as u8, '+' as u8, '-' as u8, '.' 
 pub fn parse_mf(mf: &str) -> Result<AtomCounts, ChemikazeError> {
     parse_mf_ascii(mf.as_bytes())
 }
-
 pub fn parse_mf_ascii(mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
-    let mf = mf.trim_ascii();
-    if mf.is_empty() {
+    parse_mf_ascii_chunk(mf, index_of_start(mf), index_of_end(mf))
+}
+pub fn parse_mf_ascii_chunk(mf: &[u8], mf_start: usize, mf_end: usize) -> Result<AtomCounts, ChemikazeError> {
+    if mf_start >= mf_end {
         return Err(ChemikazeError{ kind: Parsing, msg: String::from("Empty Molecular Formula") })
     }
+    let mut coeff: Vec<u32> = vec![0u32; mf_end - mf_start];
+    let mut elements: Vec<u8> = vec![0u8; mf_end - mf_start];
+    let mut i = mf_start;
 
-    parse_mf_ascii_chunk(mf)
-}
-
-pub fn parse_mf_ascii_chunk(mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
-    let mut coeff: Vec<u32> = vec![0u32; mf.len()];
-    let mut elements: Vec<u8> = vec![0u8; mf.len()];
-    let mut i = 0;
-
-    err_if_invalid_mf(mf, 0, mf.len(), parse_mf_2(mf))?;
-
-    //err_if_invalid_mf(mf, 0, mf.len(),
-    //    read_symbols_and_coeffs(mf, &mut i, 0, mf.len(), &mut elements, &mut coeff)
-    //)?;
-
-    //err_if_invalid_mf(mf, 0, mf.len(),
-    //    find_and_apply_group_coeff(mf, &mut i, 0, mf.len(), &mut coeff)
-    //)?;
-
-    Ok(AtomCounts{counts: [0u32; 85]})
-    //[0u32; 85]})
-    //combine_into_atom_counts(&elements, &coeff)})
-}
-
-#[derive(Debug, PartialEq)]
-enum Token {
-    Element(u8),
-    Coeff(u32),
-    Open,
-    Closed,
-    Punctuation,
-}
-
-fn parse_mf_2(mf: &[u8]) -> Result<(), ChemikazeError> {
-    let mut counts = [0u32, 85];
-    let mut tokens: Vec<Token> = Vec::with_capacity(mf.len());
-    let mut par_stack = Vec::with_capacity(mf.len());
-
-    let mut i = 0;
-    while i < mf.len() {
-        let ch = mf[i];
-        match ch {
-            b'(' | b'[' => {
-                par_stack.push(ch);
-                tokens.push(Token::Open);
-            }
-
-            b')' => match par_stack.pop() {
-                Some(b'(') => {
-                    tokens.push(Token::Closed);
-                },
-                _ => return Err(ChemikazeError {
-                    kind: Parsing,
-                    msg: String::from("The opening and closing parentheses don't match."),
-                }),
-            },
-
-            //b']' => match par_stack.pop() {
-            //    Some(b'[') => {
-            //        tokens.push(Token::Closed);
-            //    },
-            //    _ => return Err(ChemikazeError {
-            //        kind: Parsing,
-            //        msg: String::from("The opening and closing parentheses don't match."),
-            //    }),
-            //},
-
-            //b'A'..=b'Z' => {
-            //    let mut el = [0u8, 0u8];
-            //    el[0] = mf[i];
-            //    if i + 1 < mf.len() && (b'a'..=b'z').contains(&mf[i + 1]) {
-            //        el[1] = mf[i+1];
-            //        i += 1;
-            //    }
-
-            //    let len = if el[1] != 0 { 2 } else { 1 };
-            //    let value = periodic_table::get_element_by_symbol_bytes(&el[..len])?;
-            //    tokens.push(Token::Element(10));
-            //}
-
-            //b'0'..=b'9' => {
-            //    let mut coeff = (mf[i] - b'0') as u32;
-            //    let mut j = i+1;
-
-            //    while j < mf.len() && (b'0'..=b'9').contains(&mf[j]) {
-            //        coeff = coeff * 10 + (mf[j] - b'0') as u32;
-            //        j += 1;
-            //    }
-
-            //    tokens.push(Token::Coeff(coeff));
-            //    i = j - 1;
-            //}
-
-            _ => {}
-        }
-
-        i += 1;
-    }
-
-    return Ok(())
+    err_if_invalid_mf(mf, mf_start, mf_end,
+                      read_symbols_and_coeffs(mf, &mut i, mf_start, mf_end, &mut elements, &mut coeff)
+    )?;
+    err_if_invalid_mf(mf, mf_start, mf_end,
+        find_and_apply_group_coeff(mf, &mut i, mf_start, mf_end, &mut coeff)
+    )?;
+    Ok(AtomCounts{counts: combine_into_atom_counts(&elements, &coeff)})
 }
 
 fn err_if_invalid_mf<T>(mf: &[u8], mf_start: usize, mf_end: usize,
@@ -146,7 +58,6 @@ fn read_symbols_and_coeffs(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: us
     }
     Ok(())
 }
-
 /// There are 2 types of group coefficients:
 ///
 /// * At the beginning: 5Cl or O.5Cl - for this we run scale_forward()
@@ -197,11 +108,10 @@ fn scale_forward(mf: &[u8], mf_start: usize, mf_end: usize,
     }
     let mut depth = curr_stack_depth;
     while lo < mf_end && depth >= curr_stack_depth {
-        match mf[lo] {
-            b'(' => depth += 1,
-            b')' => depth -= 1,
-            b'.' if depth == curr_stack_depth => break,
-            _ => {}
+        if      mf[lo] == OP { depth += 1}
+        else if mf[lo] == CP { depth -= 1}
+        else if mf[lo] == DOT && depth == curr_stack_depth {
+            break;
         }
         result_coeffs[lo - mf_start] *= group_coeff;
         lo += 1;
@@ -217,13 +127,14 @@ fn scale_backward(mf: &[u8], mf_start: usize, mut hi: usize/*inclusive*/,
         hi -= 1;
     }
 }
-
-fn combine_into_atom_counts(elements: &[u8], coeffs: &[u32]) -> [u32; EARTH_ELEMENT_CNT] {
+fn combine_into_atom_counts(elements: &Vec<u8>, coeffs: &Vec<u32>) -> [u32; EARTH_ELEMENT_CNT] {
     let mut result = [0u32; EARTH_ELEMENT_CNT];
-    for (el, &c) in elements.iter().zip(coeffs.iter()) {
-        if c != 0 {
-            result[*el as usize] += c;
+    let mut i = 0;
+    while i < coeffs.len() {
+        if coeffs[i] > 0 {
+            result[elements[i] as usize] += coeffs[i];
         }
+        i+=1;
     }
     result
 }
@@ -237,9 +148,7 @@ fn consume_symbol_and_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: u
         b[1] = mf[*i];
         *i += 1;// increment so that consumeMultiplier() starts parsing the coefficient next
     }
-
-    let len = if b[1] != 0 { 2 } else { 1 };
-    result_elements[result_position] = periodic_table::get_element_by_symbol_bytes(&b[..len])?;
+    result_elements[result_position] = periodic_table::get_element_by_symbol_bytes(b)?;
     result_coeffs[result_position] = consume_coeff(mf, i, mf_end);//can handle if *i is out of bounds
     Ok(())
 }

@@ -1,135 +1,103 @@
 use crate::errors::{ChemikazeError, ErrorKind};
-use phf::{phf_map, Map};
+use crate::util::bytes_to_string;
 
 /// They are roughly sorted by popularity in organic chemistry. Well, at least the first elements
 /// are. Doesn't contain elements that would never be used in organic chemistry.
-pub const EARTH_SYMBOLS: [&[u8]; 85] = [
-    b"H", b"C", b"O", b"N", b"P", b"F", b"S", b"Br", b"Cl", b"Na", b"Li", b"Fe", b"K", b"Ca",
-    b"Mg", b"Ni", b"Al", b"Pd", b"Sc", b"V", b"Cu", b"Cr", b"Mn", b"Co", b"Zn", b"Ga", b"Ge",
-    b"As", b"Se", b"Ti", b"Si", b"Be", b"B", b"Kr", b"Rb", b"Sr", b"Y", b"Zr", b"Nb", b"Mo",
-    b"Ru", b"Rh", b"Ag", b"Cd", b"In", b"Sn", b"Sb", b"Te", b"I", b"Xe", b"Cs", b"Ba", b"La",
-    b"Ce", b"Pr", b"Nd", b"Sm", b"Eu", b"Gd", b"Tb", b"Dy", b"Ho", b"Er", b"Tm", b"Yb", b"Lu",
-    b"Hf", b"Ta", b"Tc", b"W", b"Re", b"Os", b"Ir", b"Pt", b"Au", b"Hg", b"Tl", b"Pb", b"Bi",
-    b"Th", b"Pa", b"U", b"He", b"Ne", b"Ar",
+pub const EARTH_SYMBOLS: [&str; 85] = [
+    "H", "C", "O", "N", "P", "F", "S", "Br", "Cl", "Na", "Li", "Fe", "K", "Ca", "Mg", "Ni", "Al",
+    "Pd", "Sc", "V", "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge", "As", "Se", "Ti", "Si", "Be", "B",
+    "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Ru", "Rh", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I",
+    "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+    "Lu", "Hf", "Ta", "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa",
+    "U", "He", "Ne", "Ar",
 ];
-
 pub const EARTH_ELEMENT_CNT: usize = EARTH_SYMBOLS.len();
+/// Same as EARTH_SYMBOLS, but keep symbols as bytes so that we don't have to turn them into
+/// String on each lookup. Each symbol is 2 bytes: for 1-symbol elements like H, the 2nd byte is 0.
+const EARTH_SYMBOLS_AS_BYTES: [u8; EARTH_ELEMENT_CNT*2] = build_symbols_as_bytes();
+/// The size of {@link #ELEMENTHASH_TO_ELEMENT} hash table
+const INDEX_BUCKET_CNT: usize = 512;
+const INDEX_HASH_MASK: usize = INDEX_BUCKET_CNT - 1;
+const ELEMENTHASH_TO_ELEMENT: [u8; INDEX_BUCKET_CNT] = build_index();
 
-static ELEMENTS: phf::Map<&'static [u8], u8> = phf_map! {
-    b"H\0" => 0,  b"C\0" => 1,  b"O\0" => 2,  b"N\0" => 3,  b"P\0" => 4,  b"F\0" => 5,  b"S\0" => 6,
-    b"Br" => 7, b"Cl" => 8, b"Na" => 9, b"Li" => 10, b"Fe" => 11,
-    b"K\0" => 12, b"Ca" => 13, b"Mg" => 14, b"Ni" => 15, b"Al" => 16,
-    b"Pd" => 17, b"Sc" => 18, b"V\0" => 19, b"Cu" => 20, b"Cr" => 21,
-    b"Mn" => 22, b"Co" => 23, b"Zn" => 24, b"Ga" => 25, b"Ge" => 26,
-    b"As" => 27, b"Se" => 28, b"Ti" => 29, b"Si" => 30, b"Be" => 31,
-    b"B\0" => 32,  b"Kr" => 33, b"Rb" => 34, b"Sr" => 35, b"Y\0" => 36,
-    b"Zr" => 37, b"Nb" => 38, b"Mo" => 39, b"Ru" => 40, b"Rh" => 41,
-    b"Ag" => 42, b"Cd" => 43, b"In" => 44, b"Sn" => 45, b"Sb" => 46,
-    b"Te" => 47, b"I\0" => 48,  b"Xe" => 49, b"Cs" => 50, b"Ba" => 51,
-    b"La" => 52, b"Ce" => 53, b"Pr" => 54, b"Nd" => 55, b"Sm" => 56,
-    b"Eu" => 57, b"Gd" => 58, b"Tb" => 59, b"Dy" => 60, b"Ho" => 61,
-    b"Er" => 62, b"Tm" => 63, b"Yb" => 64, b"Lu" => 65, b"Hf" => 66,
-    b"Ta" => 67, b"Tc" => 68, b"W\0" => 69,  b"Re" => 70, b"Os" => 71,
-    b"Ir" => 72, b"Pt" => 73, b"Au" => 74, b"Hg" => 75, b"Tl" => 76,
-    b"Pb" => 77, b"Bi" => 78, b"Th" => 79, b"Pa" => 80, b"U\0" => 81,
-    b"He" => 82, b"Ne" => 83, b"Ar" => 84,
-};
-
-#[inline(always)]
-pub fn get_element_by_symbol_bytes(bytes: &[u8]) -> Result<u8, ChemikazeError> {
-    match bytes {
-        b"H"  => Ok(0),
-        b"C"  => Ok(1),
-        b"O"  => Ok(2),
-        b"N"  => Ok(3),
-        b"P"  => Ok(4),
-        b"F"  => Ok(5),
-        b"S"  => Ok(6),
-        b"Br" => Ok(7),
-        b"Cl" => Ok(8),
-        b"Na" => Ok(9),
-        b"Li" => Ok(10),
-        b"Fe" => Ok(11),
-        b"K"  => Ok(12),
-        b"Ca" => Ok(13),
-        b"Mg" => Ok(14),
-        b"Ni" => Ok(15),
-        b"Al" => Ok(16),
-        b"Pd" => Ok(17),
-        b"Sc" => Ok(18),
-        b"V"  => Ok(19),
-        b"Cu" => Ok(20),
-        b"Cr" => Ok(21),
-        b"Mn" => Ok(22),
-        b"Co" => Ok(23),
-        b"Zn" => Ok(24),
-        b"Ga" => Ok(25),
-        b"Ge" => Ok(26),
-        b"As" => Ok(27),
-        b"Se" => Ok(28),
-        b"Ti" => Ok(29),
-        b"Si" => Ok(30),
-        b"Be" => Ok(31),
-        b"B"  => Ok(32),
-        b"Kr" => Ok(33),
-        b"Rb" => Ok(34),
-        b"Sr" => Ok(35),
-        b"Y"  => Ok(36),
-        b"Zr" => Ok(37),
-        b"Nb" => Ok(38),
-        b"Mo" => Ok(39),
-        b"Ru" => Ok(40),
-        b"Rh" => Ok(41),
-        b"Ag" => Ok(42),
-        b"Cd" => Ok(43),
-        b"In" => Ok(44),
-        b"Sn" => Ok(45),
-        b"Sb" => Ok(46),
-        b"Te" => Ok(47),
-        b"I"  => Ok(48),
-        b"Xe" => Ok(49),
-        b"Cs" => Ok(50),
-        b"Ba" => Ok(51),
-        b"La" => Ok(52),
-        b"Ce" => Ok(53),
-        b"Pr" => Ok(54),
-        b"Nd" => Ok(55),
-        b"Sm" => Ok(56),
-        b"Eu" => Ok(57),
-        b"Gd" => Ok(58),
-        b"Tb" => Ok(59),
-        b"Dy" => Ok(60),
-        b"Ho" => Ok(61),
-        b"Er" => Ok(62),
-        b"Tm" => Ok(63),
-        b"Yb" => Ok(64),
-        b"Lu" => Ok(65),
-        b"Hf" => Ok(66),
-        b"Ta" => Ok(67),
-        b"Tc" => Ok(68),
-        b"W"  => Ok(69),
-        b"Re" => Ok(70),
-        b"Os" => Ok(71),
-        b"Ir" => Ok(72),
-        b"Pt" => Ok(73),
-        b"Au" => Ok(74),
-        b"Hg" => Ok(75),
-        b"Tl" => Ok(76),
-        b"Pb" => Ok(77),
-        b"Bi" => Ok(78),
-        b"Th" => Ok(79),
-        b"Pa" => Ok(80),
-        b"U"  => Ok(81),
-        b"He" => Ok(82),
-        b"Ne" => Ok(83),
-        b"Ar" => Ok(84),
-        _ => Err(ChemikazeError {
-            msg: format!(
-                "Unknown chemical symbol: {}",
-                std::str::from_utf8(bytes).unwrap_or("<invalid>")
-            ),
-            kind: ErrorKind::UnknownElement,
-        }),
+/// `symbol` - "H", "Na", etc. Only the elements that actually exist on the Earth are used,
+///           see `EARTH_SYMBOLS` array.
+pub fn get_element_by_symbol_str(symbol: &str) -> Result<u8, ChemikazeError> {
+    let ascii = symbol.as_bytes();
+    let mut bytes: [u8; 2] = [0; 2];
+    bytes[0] = ascii[0];
+    if ascii.len() > 1 {
+        bytes[1] = ascii[1];
     }
+    get_element_by_symbol_bytes(bytes)
+}
+/// `bytes` represent symbol ASCII (like ['H', 'e']). For 1-byte symbols: ['H', 0].
+pub fn get_element_by_symbol_bytes(bytes: [u8; 2]) -> Result<u8, ChemikazeError> {
+    let element = ELEMENTHASH_TO_ELEMENT[hash(bytes)];
+    let i = (element * 2) as usize; // Java impl doesn't need to multiply here
+    if EARTH_SYMBOLS_AS_BYTES[i] != bytes[0] || EARTH_SYMBOLS_AS_BYTES[i+1] != bytes[1] {
+        let mut element_str = bytes_to_string(&bytes);
+        if bytes[1] == 0 {
+            element_str = bytes_to_string(&bytes[0..1]);
+        }
+        return Err(ChemikazeError {
+            msg: String::from(format!("Unknown chemical symbol: {element_str}")),
+            kind: ErrorKind::UnknownElement
+        });
+    }
+    Ok(element)
+}
+pub const fn hash(symbol: [u8; 2]) -> usize {
+    // Ran an experiment, and 277 is one of few multipliers that gave no collisions in 512-sized
+    // hash table. Couldn't achieve the same with subtractions or shifts, no matter the order of b0
+    // and b1.
+    ((symbol[0] as usize * 277) ^ symbol[1] as usize) & INDEX_HASH_MASK
 }
 
+const fn build_index() ->  [u8; INDEX_BUCKET_CNT] {
+    // a precaution to see if we made an error in the hash()
+    let mut taken_buckets = [false; INDEX_BUCKET_CNT];
+    let mut result = [0; INDEX_BUCKET_CNT];
+    let mut i = 0;
+    while i < EARTH_SYMBOLS.len() {
+        let bucket = hash([EARTH_SYMBOLS_AS_BYTES[i*2], EARTH_SYMBOLS_AS_BYTES[i*2+1]]);
+        if taken_buckets[i] {
+            panic!("Wrong hash function for the Symbol HashTable: 2 symbols were mapped to the same bucket")
+        }
+        taken_buckets[i] = true;
+        result[bucket] = i as u8;
+        i += 1;
+    }
+    result
+}
+const fn build_symbols_as_bytes() -> [u8; EARTH_ELEMENT_CNT*2] {
+    let mut symbol_bytes: [u8; EARTH_ELEMENT_CNT*2] = [0u8; EARTH_ELEMENT_CNT*2];
+    let mut i = 0;
+    while i < EARTH_ELEMENT_CNT {
+        let b = EARTH_SYMBOLS[i].as_bytes();
+        let j = i * 2;
+        symbol_bytes[j] = b[0];
+        if b.len() > 1 {
+            symbol_bytes[j + 1] = b[1];
+        }
+        i += 1;
+    }
+    symbol_bytes
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn returns_element_by_its_symbol_str() {
+        assert_eq!(0u8, get_element_by_symbol_str("H").unwrap());
+        assert_eq!(1u8, get_element_by_symbol_str("C").unwrap());
+        assert_eq!(9u8, get_element_by_symbol_str("Na").unwrap());
+    }
+    #[test]
+    fn returns_element_by_its_symbol_bytes() {
+        assert_eq!(0u8, get_element_by_symbol_bytes(['H' as u8, 0]).unwrap());
+        assert_eq!(82u8, get_element_by_symbol_bytes(['H' as u8, 'e' as u8]).unwrap());
+    }
+}

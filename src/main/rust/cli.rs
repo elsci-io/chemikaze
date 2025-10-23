@@ -13,28 +13,20 @@ fn main() {
         panic!("[ERROR] Pass filename as a parameter!");
     }
     let filepath = &args[1];
-    let repeats = 5;
+    let repeats = 50;
     let content = fs::read_to_string(filepath).expect(&format!("Couldn't read {filepath}"));
     let lines: Vec<&str> = content.split("\n").collect();
     let mf_cnt = repeats * lines.len();
 
+    let mut start = Instant::now();
+    parse_mfs(&lines, repeats);
+    println!("Finished warmup in {:.3?}", start.elapsed());
 
-    let start = Instant::now();
-    let hydrogen_atoms = parse_mfs(&lines, repeats);
+    start = Instant::now();
+    parse_mfs(&lines, repeats);
     let elapsed = start.elapsed();
-
-    let gb: f64 = 1024.0 * 1024.0 * 1024.0;
-    let secs = elapsed.as_secs_f64();
-    let mfs_per_sec = mf_cnt as f64 / secs;
-    let bytes_total = (lines.iter().map(|s| s.len()).sum::<usize>() * repeats) as f64;
-    let gb_per_sec = bytes_total / secs / gb;
-
-    println!(
-        "[RUST BENCHMARK] {mf_cnt} - {hydrogen_atoms} MFs in {:.2?} ({:.0} MF/s, {:.3} GB/s)",
-        elapsed,
-        mfs_per_sec,
-        gb_per_sec
-    );
+    println!("[RUST BENCHMARK] {mf_cnt} MFs in {:.2?} ({}MF/s)", elapsed,
+             (mf_cnt as f64 / elapsed.as_secs_f64()) as u32);
 }
 
 fn parse_mfs(mfs: &Vec<&str>, n: usize) -> u32 {

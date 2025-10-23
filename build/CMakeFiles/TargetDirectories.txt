@@ -1,3 +1,0 @@
-/home/alderson/Projects/Mine/chemikaze/build/CMakeFiles/ChemParser.dir
-/home/alderson/Projects/Mine/chemikaze/build/CMakeFiles/edit_cache.dir
-/home/alderson/Projects/Mine/chemikaze/build/CMakeFiles/rebuild_cache.dir

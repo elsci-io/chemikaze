@@ -38,19 +38,41 @@ size_t readAllBytes(char *filepath, char **buf) {
 	return size;
 }
 
-unsigned parseAllMfs(char *buf, size_t size) {
-	unsigned mfcount = 0;
-	for (size_t i = 0; i < size; mfcount++, i++) {
-		char *mf = buf + i++;
-		while (*(buf + i) != '\n' && i != size)
-			i++;
-		ChemikazeError *error = nullptr;
-		AtomCounts *counts = parseMfChunk(mf, buf + i, &error);
+typedef struct { char *start, *end/*exclusive*/; } MfBounds;
+
+size_t parseAllMfs(MfBounds *buf, size_t size) {
+	size_t hcount = 0;
+	ChemikazeError *error = nullptr;
+	for (size_t i = 0; i < size; buf++, i++) {
+		AtomCounts *counts = parseMfChunk(buf->start, buf->end, &error);
+		hcount += counts->counts[0];
 		if (counts == nullptr) {
 			perror(error->msg);
 			exit(1);
 		}
 		AtomCounts_free(counts);
+	}
+	return hcount;
+}
+
+
+unsigned findMfBounds(char *buf, size_t size, MfBounds **mfBounds) {
+	unsigned mfcount = 0;
+	for (size_t i = 0; i < size; mfcount++, i++)//calculate mfcount
+		while (*(buf + i) != '\n' && i != size)
+			i++;
+	// now let's go through the bytes again and fill the bounds:
+	*mfBounds = malloc(mfcount * sizeof(MfBounds));
+	if (mfBounds == nullptr) {
+		perror("Couldn't allocate mem for the bounds");
+		exit(13);
+	}
+	MfBounds *current = *mfBounds;
+	for (size_t i = 0; i < size; current++, i++) {
+		current->start = buf + i++;
+		while (*(buf + i) != '\n' && i != size)
+			i++;
+		current->end = buf + i;
 	}
 	return mfcount;
 }
@@ -65,20 +87,19 @@ int main(int argc, [[maybe_unused]] char **argv) {
 	size_t size = readAllBytes(argv[1], &buf);
 
 	int repeats = 50;
-	unsigned mfInFile = 0;
+	// Go through the data once to calculate MF end and start offsets, so that these calcs aren't part of the benchmark:
+	MfBounds *mfs = nullptr;
+	unsigned mfCnt = findMfBounds(buf, size, &mfs);
+	unsigned totalParsed = repeats * mfCnt;
 
+	// START BENCHMARK:
 	clock_t start = clock();
 	for (int i = 0; i < repeats; i++)
-		mfInFile = parseAllMfs(buf, size);
-	printf("Finished warmup in %f sec\n", (double)(clock()-start)/CLOCKS_PER_SEC);
-
-	unsigned mfCnt = repeats * mfInFile;
-	start = clock();
-	for (int i = 0; i < repeats; i++)
-		parseAllMfs(buf, size);
+		parseAllMfs(mfs, mfCnt);
 	double elapsed = (double)(clock()-start)/CLOCKS_PER_SEC;
-	printf("[C BENCHMARK] %d MFs in %f sec (%d MF/s)\n", mfCnt, elapsed, (int) (mfCnt/elapsed));
+	printf("[C BENCHMARK] %d MFs in %f sec (%d MF/s)\n", totalParsed, elapsed, (int) (totalParsed/elapsed));
 
+	free(mfs);
 	free(buf);
 	return 0;
 }

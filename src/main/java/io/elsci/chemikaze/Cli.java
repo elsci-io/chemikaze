@@ -19,7 +19,7 @@ public class Cli {
         // *** WARMUP ***
         long start = System.nanoTime();
         parseMfs(parser, lines, repeats);
-        out.println("Finished warmup in " + durationSince(start));
+        out.printf("Finished warmup in %.2fs %n", (System.nanoTime() - start)/1e9F);
 
         // *** BENCHMARK ***
         start = System.nanoTime();
@@ -27,14 +27,7 @@ public class Cli {
         long end = System.nanoTime();
         int speed = (int)(mfCnt / ((end - start)/1e9));
 
-        out.printf("[JAVA BENCHMARK] %d MFs in %.2fs (%,d MF/s) %n", mfCnt, (end-start)/1e9F, speed);
-    }
-
-    private static String durationSince(long startNanosec) {
-        return duration(startNanosec, System.nanoTime());
-    }
-    private static String duration(long start, long end) {
-        return Math.round(((end - start) / 1e9) * 100)/100 + "s";
+        out.printf("[JAVA BENCHMARK] %d MFs in %.2fs (%d MF/s) %n", mfCnt, (end-start)/1e9F, speed);
     }
 
     @SuppressWarnings({"UnusedReturnValue", "SameParameterValue"})

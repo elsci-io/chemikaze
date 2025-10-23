@@ -2,13 +2,14 @@ package io.elsci.chemikaze;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import static java.lang.System.*;
 
 public class Cli {
     public static void main(String[] args) {
         String filename = readFilenameOrExit(args);
-        String[] lines = readIntoLines(filename);
+        byte[][] lines = readIntoLines(filename);
         MfParser parser = new MfParser();
 
         // *** BENCHMARK SETUP ***
@@ -37,21 +38,26 @@ public class Cli {
     }
 
     @SuppressWarnings({"UnusedReturnValue", "SameParameterValue"})
-    private static int parseMfs(MfParser parser, String[] lines, int n) {
+    private static int parseMfs(MfParser parser, byte[][] lines, int n) {
         int hydrogenCnt = 0;
         for (int i = 0; i < n; i++)
-            for (String line : lines)
-                hydrogenCnt += parser.parseMf(line).counts[0];
+            for (byte[] line : lines)
+                hydrogenCnt += parser.parseMf(line, 0, line.length).counts[0];
         return hydrogenCnt;
     }
 
-    private static String[] readIntoLines(String filename) {
+    private static byte[][] readIntoLines(String filename) {
+        String[] strings;
         try (FileInputStream in = new FileInputStream(filename)) {
-            return new String(in.readAllBytes()).split("\n");
+            strings = new String(in.readAllBytes()).split("\n");
         } catch (IOException e) {
             err.println("Couldn't open the file, see error below:");
             throw new RuntimeException(e);
         }
+        byte[][] lines = new byte[strings.length][];
+        for (int i = 0; i < strings.length; i++)
+            lines[i] = strings[i].getBytes(StandardCharsets.US_ASCII);
+        return lines;
     }
 
     private static String readFilenameOrExit(String[] args) {

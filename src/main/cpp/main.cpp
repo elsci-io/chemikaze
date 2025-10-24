@@ -1,3 +1,4 @@
+#include "profiler.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -8,7 +9,6 @@
 #include <time.h>
 #include "tests.hpp"
 #include "parser.hpp"
-#include "profiler.hpp"
 
 std::vector<char*> get_data(std::ifstream& file) {
     std::vector<char*> values;
@@ -47,7 +47,6 @@ int main(int argc, char** argv) {
     }
 
     auto formulas = get_data(file);
-
     init_element_index();
     startProfiling();
     clock_t t0 = clock();

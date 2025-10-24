@@ -1,8 +1,8 @@
+#include "parser.hpp"
 #include <ctype.h>
 #include <stdio.h>
-#include "parser.hpp"
 
-static const char *EARTH_SYMBOLS[85] __attribute__((aligned(64))) = {
+static const char *EARTH_SYMBOLS[85] = {
     "H",  "C",  "O",  "N",  "P",  "F",  "S",  "Br", "Cl", "Na", "Li", "Fe", "K",  "Ca",
     "Mg", "Ni", "Al", "Pd", "Sc", "V",  "Cu", "Cr", "Mn", "Co", "Zn", "Ga", "Ge",
     "As", "Se", "Ti", "Si", "Be", "B",  "Kr", "Rb", "Sr", "Y",  "Zr", "Nb", "Mo",
@@ -11,27 +11,27 @@ static const char *EARTH_SYMBOLS[85] __attribute__((aligned(64))) = {
     "Hf", "Ta", "Tc", "W",  "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi",
     "Th", "Pa", "U",  "He", "Ne", "Ar"
 };
-
-static u16 ELEMENT_INDEX[26][27] __attribute__((aligned(64))) = {0};
-static inline u16 get_element_index(u16 l1, u16 l2) {
+static u8 ELEMENT_INDEX[26][27] = {0};
+static inline u8 get_element_index(u8 l1, u8 l2) {
     return ELEMENT_INDEX[l1 - 'A'][l2 ? l2-'a'+1 : 0]-1;
 }
 
 void init_element_index(void) {
-    for (u16 i = 0; i < 85; ++i) {
+    for (u8 i = 0; i < 85; ++i) {
         unsigned char c1 = EARTH_SYMBOLS[i][0];
         unsigned char c2 = EARTH_SYMBOLS[i][1];
         ELEMENT_INDEX[c1-'A'][c2 ? c2-'a'+1 : 0] = i+1;
     }
 }
 
-const char* get_element_by_index(u16 index) {
+const char* get_element_by_index(u8 index) {
     return EARTH_SYMBOLS[index];
 }
 
 inline u16 read_coeff(const char** p) {
     const char* s = *p;
     unsigned v = 0;
+
     unsigned c = (unsigned char)*s;
     if (c < '0' || c > '9') {
         *p = s;
@@ -54,8 +54,8 @@ AtomCount parse_mf(const char** p, const char closing) {
     u16 globalCoeff = read_coeff(p);
     while (**p) {
         if (isupper(**p)) {
-            u16 l1 = (**p);
-            u16 l2 = 0;
+            u8 l1 = (**p);
+            u8 l2 = 0;
 
             unsigned c = (unsigned char)*(*p+1);
             if (c >= 'a' && c <= 'z') {
@@ -63,8 +63,8 @@ AtomCount parse_mf(const char** p, const char closing) {
                 (*p)++;
             }
 
-            u16 index = get_element_index(l1, l2);
-            if (index == 0xFFFF) {
+            u8 index = get_element_index(l1, l2);
+            if (index == 255) {
                 printf("Unknown element: %c%c \n", l1, l2);
                 return AtomCount{};
             }
@@ -84,12 +84,12 @@ AtomCount parse_mf(const char** p, const char closing) {
             if (**p == '+' || **p == '-') coeff = 1;
 
             #pragma GCC unroll 8
-            for (u16 i = 0; i < 88; ++i) {
+            for (u8 i = 0; i < 85; ++i) {
                 segmentCount.atoms[i] += atomCountGr.atoms[i] * coeff;
             }
         } else if (**p == '.') {
             #pragma GCC unroll 8
-            for (u16 i = 0; i < 88; ++i) {
+            for (u8 i = 0; i < 85; ++i) {
                 atomCount.atoms[i] += segmentCount.atoms[i] * globalCoeff;
             }
 
@@ -112,7 +112,7 @@ AtomCount parse_mf(const char** p, const char closing) {
     }
 
     #pragma GCC unroll 8
-    for (u16 i = 0; i < 88; ++i) {
+    for (u8 i = 0; i < 85; ++i) {
         atomCount.atoms[i] += segmentCount.atoms[i] * globalCoeff;
     }
 

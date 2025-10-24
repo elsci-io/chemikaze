@@ -2,12 +2,12 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include "parser.hpp"
 #include <stdio.h>
 #include <stdint.h>
 #include <cstring>
 #include <time.h>
 #include "tests.hpp"
+#include "parser.hpp"
 #include "profiler.hpp"
 
 std::vector<char*> get_data(std::ifstream& file) {

@@ -7,5 +7,4 @@ typedef struct __attribute__((aligned(64))){
 
 
 AtomCount parse_mf(const char** formula, const char closing = -1);
-void init_element_index(void);
 const char* get_element_by_index(u16 index);

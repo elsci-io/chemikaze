@@ -47,7 +47,6 @@ int main(int argc, char** argv) {
     }
 
     auto formulas = get_data(file);
-    init_element_index();
     startProfiling();
     clock_t t0 = clock();
 

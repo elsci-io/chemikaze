@@ -9,8 +9,7 @@ make
 
 # My solution: 
 
-
-<img width="833" height="1031" alt="image" src="https://github.com/user-attachments/assets/49af21dc-7ad7-4231-a9f9-966823543652" />
+<img width="850" height="1027" alt="image" src="https://github.com/user-attachments/assets/2f83da0d-b963-439c-8cde-f1f7f1db68b8" />
 
 # OP solution:
 

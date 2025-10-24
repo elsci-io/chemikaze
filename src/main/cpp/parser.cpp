@@ -11,11 +11,11 @@ static const char *EARTH_SYMBOLS[85] = {
     "Hf", "Ta", "Tc", "W",  "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi",
     "Th", "Pa", "U",  "He", "Ne", "Ar"
 };
-
 static u8 ELEMENT_INDEX[26][27] = {0};
 static inline u8 get_element_index(u8 l1, u8 l2) {
     return ELEMENT_INDEX[l1 - 'A'][l2 ? l2-'a'+1 : 0]-1;
 }
+
 void init_element_index(void) {
     for (u8 i = 0; i < 85; ++i) {
         unsigned char c1 = EARTH_SYMBOLS[i][0];
@@ -38,10 +38,7 @@ inline u16 read_coeff(const char** p) {
         (*p)++;
     }
 
-    if (!any_digit && !coeff) {
-        coeff = 1;
-    }
-
+    if (!any_digit && !coeff) { coeff = 1; }
     return coeff;
 }
 
@@ -78,10 +75,13 @@ AtomCount parse_mf(const char** p, const char closing) {
 
             u16 coeff = read_coeff(p);
             if (**p == '+' || **p == '-') coeff = 1;
+
+            #pragma GCC unroll 8
             for (u8 i = 0; i < 85; ++i) {
                 segmentCount.atoms[i] += atomCountGr.atoms[i] * coeff;
             }
         } else if (**p == '.') {
+            #pragma GCC unroll 8
             for (u8 i = 0; i < 85; ++i) {
                 atomCount.atoms[i] += segmentCount.atoms[i] * globalCoeff;
             }
@@ -104,12 +104,10 @@ AtomCount parse_mf(const char** p, const char closing) {
         }
     }
 
+    #pragma GCC unroll 8
     for (u8 i = 0; i < 85; ++i) {
         atomCount.atoms[i] += segmentCount.atoms[i] * globalCoeff;
     }
 
     return atomCount;
 }
-
-
-

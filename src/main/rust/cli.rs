@@ -1,5 +1,6 @@
 use std::{env, fs};
 use std::time::*;
+use crate::mf_parser::MfParser;
 
 mod atom_counts;
 mod periodic_table;
@@ -30,10 +31,11 @@ fn main() {
 }
 
 fn parse_mfs(mfs: &Vec<&[u8]>, n: usize) -> u32 {
+    let mut parser = MfParser::new();
     let mut hcount: u32 = 0;
     for _ in 0..n {
         for mf in mfs {
-            hcount += mf_parser::parse_mf_ascii_chunk(mf, 0, mf.len()).unwrap().counts[0];
+            hcount += parser.parse_mf_sanitized(mf).unwrap().counts[0];
         }
     }
     hcount // return something so that this isn't optimized out

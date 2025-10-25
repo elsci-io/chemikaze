@@ -7,33 +7,172 @@ use crate::util::{*};
 
 const MF_PUNCTUATION: [u8;7] = ['(' as u8, ')' as u8, '+' as u8, '-' as u8, '.' as u8, '[' as u8, ']' as u8];
 
-pub fn parse_mf(mf: &str) -> Result<AtomCounts, ChemikazeError> {
-    parse_mf_ascii(mf.as_bytes())
+pub struct MfParser {
+    i: usize,
+    coeffs: Vec<u32>,
+    elements: Vec<u8>,
 }
-pub fn parse_mf_ascii(mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
-    parse_mf_ascii_chunk(mf, index_of_start(mf), index_of_end(mf))
-}
-pub fn parse_mf_ascii_chunk(mf: &[u8], mf_start: usize, mf_end: usize) -> Result<AtomCounts, ChemikazeError> {
-    if mf_start >= mf_end {
-        return Err(ChemikazeError{ kind: Parsing, msg: String::from("Empty Molecular Formula") })
+
+impl MfParser {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            i: 0,
+            coeffs: Vec::with_capacity(capacity),
+            elements: Vec::with_capacity(capacity),
+        }
     }
-    let mut coeff: Vec<u32> = vec![0u32; mf_end - mf_start];
-    let mut elements: Vec<u8> = vec![0u8; mf_end - mf_start];
-    let mut i = mf_start;
+    pub fn new() -> Self {
+        Self::with_capacity(20)
+    }
 
-    err_if_invalid_mf(mf, mf_start, mf_end,
-                      read_symbols_and_coeffs(mf, &mut i, mf_start, mf_end, &mut elements, &mut coeff)
-    )?;
-    err_if_invalid_mf(mf, mf_start, mf_end,
-        find_and_apply_group_coeff(mf, &mut i, mf_start, mf_end, &mut coeff)
-    )?;
-    Ok(AtomCounts{counts: combine_into_atom_counts(&elements, &coeff)})
+    #[allow(dead_code)]
+    pub fn parse_mf(&mut self, mf: &str) -> Result<AtomCounts, ChemikazeError> {
+        let sanitized = mf.as_bytes().trim_ascii();
+        if sanitized.is_empty() {
+            return Err(ChemikazeError{ kind: Parsing, msg: "Empty Molecular Formula".into() })
+        }
+        self.parse_mf_ascii(sanitized)
+    }
+    pub fn parse_mf_ascii(&mut self, mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
+        self.parse_mf_sanitized(mf.trim_ascii())
+    }
+
+    pub fn parse_mf_sanitized(&mut self, mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
+        self.coeffs.clear();
+        self.elements.clear();
+        self.coeffs.resize(mf.len(), 0);
+        self.elements.resize(mf.len(), 0);
+
+        err_if_invalid_mf(mf, self.read_symbols_and_coeffs(mf))?;
+        err_if_invalid_mf(mf, self.find_and_apply_group_coeff(mf))?;
+        Ok(AtomCounts{counts: self.combine_into_atom_counts()})
+    }
+    fn read_symbols_and_coeffs(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
+        self.i = 0;
+        while self.i < mf.len() {
+            if mf[self.i].is_ascii_uppercase() {
+                self.consume_symbol_and_coeff(mf)?;
+            } else if mf[self.i].is_ascii_digit() || MF_PUNCTUATION.contains(&mf[self.i]) { // digit - meaning (xx)N or Nxx
+                self.i += 1;
+            } else {
+                return Err(ChemikazeError {
+                    kind: Parsing,
+                    msg: String::from(format!("Unexpected symbol: {:?}", char::from(mf[self.i])))
+                });
+            }
+        }
+        Ok(())
+    }
+    fn consume_symbol_and_coeff(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
+        let result_position = self.i;
+        let first = mf[self.i];
+        self.i += 1;
+        let symbol = if self.i < mf.len() && mf[self.i].is_ascii_lowercase() {
+            let second = mf[self.i];
+            self.i += 1;// increment so that consumeMultiplier() starts parsing the coefficient next
+            [first, second]
+        } else {
+            [first, 0]
+        };
+        self.elements[result_position] = periodic_table::get_element_by_symbol_bytes(symbol)?;
+        self.coeffs[result_position] = self.consume_coeff(mf);//can handle if *i is out of bounds
+        Ok(())
+    }
+    fn consume_coeff(&mut self, mf: &[u8]) -> u32 {
+        if self.i >= mf.len() || !mf[self.i].is_ascii_digit() {
+            return 1;
+        }
+        let mut multiplier: u32 = 0;
+        while self.i < mf.len() && mf[self.i].is_ascii_digit() {
+            multiplier = multiplier * 10 + (mf[self.i] - _0) as u32;
+            self.i += 1;
+        }
+        multiplier
+    }
+    /// There are 2 types of group coefficients:
+    ///
+    /// * At the beginning: 5Cl or O.5Cl - for this we run scale_forward()
+    /// * After parenthesis: (CO)2 - for this we run scale_backward()
+    fn find_and_apply_group_coeff(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
+        let mut curr_stack_depth = 0;
+        self.i = 0;
+        'out: while self.i < mf.len() {
+            let coeff = self.consume_coeff(mf);
+            self.scale_forward(mf, self.i, curr_stack_depth, coeff);
+            if self.i >= mf.len() {
+                break
+            }
+            while mf[self.i].is_ascii_alphanumeric() {
+                self.i += 1;
+                if self.i >= mf.len() {
+                    break 'out;
+                }
+            }
+            if mf[self.i] == OP {
+                curr_stack_depth += 1;
+            } else if mf[self.i] == CP {
+                let mut chunk_end = 0;
+                if self.i > 0 {
+                    chunk_end = self.i - 1;
+                }
+                self.i += 1;
+                let coeff = self.consume_coeff(mf);
+                self.scale_backward(mf, chunk_end, curr_stack_depth, coeff);
+                curr_stack_depth -= 1;
+                continue;
+            }
+            self.i += 1;
+        }
+        if curr_stack_depth != 0 {
+            return Err(ChemikazeError{
+                kind: Parsing,
+                msg: String::from("The opening and closing parentheses don't match.")
+            })
+        }
+        Ok(())
+    }
+    fn scale_forward(&mut self, mf: &[u8], mut lo: usize, curr_stack_depth: i32, group_coeff: u32) {
+        if group_coeff == 1 {
+            return;// usually the case, as people rarely put coefficients in front of MF
+        }
+        let mut depth = curr_stack_depth;
+        while lo < mf.len() && depth >= curr_stack_depth {
+            if      mf[lo] == OP { depth += 1}
+            else if mf[lo] == CP { depth -= 1}
+            else if mf[lo] == DOT && depth == curr_stack_depth {
+                break;
+            }
+            self.coeffs[lo] *= group_coeff;
+            lo += 1;
+        }
+    }
+    fn scale_backward(&mut self, mf: &[u8], mut hi: usize/*inclusive*/,
+                      curr_stack_depth: i32, group_coeff: u32) {
+        let mut depth = curr_stack_depth;
+        while hi > 0 && depth <= curr_stack_depth {
+            if      mf[hi] == OP { depth += 1 }
+            else if mf[hi] == CP { depth -= 1 }
+            self.coeffs[hi] *= group_coeff;
+            hi -= 1;
+        }
+    }
+    fn combine_into_atom_counts(&self) -> [u32; EARTH_ELEMENT_CNT] {
+        let mut result = [0u32; EARTH_ELEMENT_CNT];
+        let mut i = 0;
+        while i < self.coeffs.len() {
+            if self.coeffs[i] > 0 {
+                result[self.elements[i] as usize] += self.coeffs[i];
+            }
+            i+=1;
+        }
+        result
+    }
 }
 
-fn err_if_invalid_mf<T>(mf: &[u8], mf_start: usize, mf_end: usize,
-                     result: Result<T, ChemikazeError>) -> Result<(), ChemikazeError> {
+
+fn err_if_invalid_mf<T>(mf: &[u8], result: Result<T, ChemikazeError>) -> Result<(), ChemikazeError> {
     if result.is_err() {
-        let mf_str = bytes_to_string(&mf[mf_start..mf_end]);
+        let mf_str = bytes_to_string(&mf);
         let msg = String::from(format!("Invalid Molecular Formula: {mf_str}. Details: {}",
                                        result.err().unwrap().msg));
         return Err(ChemikazeError { kind: Parsing, msg });
@@ -41,133 +180,13 @@ fn err_if_invalid_mf<T>(mf: &[u8], mf_start: usize, mf_end: usize,
     Ok(())
 }
 
-fn read_symbols_and_coeffs(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: usize,
-                           result_elements: &mut Vec<u8>, coeff: &mut Vec<u32>) -> Result<(), ChemikazeError> {
-    *i = mf_start;
-    while *i < mf_end {
-        if is_big_letter(mf[*i]) {
-            consume_symbol_and_coeff(mf, i, mf_start, mf_end, result_elements, coeff)?;
-        } else if MF_PUNCTUATION.contains(&mf[*i]) || is_digit(mf[*i]) { // digit - meaning (xx)N or Nxx
-            *i += 1;
-        } else {
-            return Err(ChemikazeError {
-                kind: Parsing,
-                msg: String::from(format!("Unexpected symbol: {:?}", char::from(mf[*i])))
-            });
-        }
-    }
-    Ok(())
-}
-/// There are 2 types of group coefficients:
-///
-/// * At the beginning: 5Cl or O.5Cl - for this we run scale_forward()
-/// * After parenthesis: (CO)2 - for this we run scale_backward()
-fn find_and_apply_group_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: usize,
-                              mut result_coeffs: &mut [u32]) -> Result<(), ChemikazeError> {
-    let mut curr_stack_depth = 0;
-    *i = mf_start;
-    'out: while *i < mf_end {
-        scale_forward(mf, mf_start, mf_end, *i, curr_stack_depth, &mut result_coeffs,
-                      consume_coeff(mf, i, mf_end));
-        if *i >= mf_end {
-            break
-        }
-        while is_alphanumeric(mf[*i]) {
-            *i += 1;
-            if *i >= mf_end {
-                break 'out;
-            }
-        }
-        if mf[*i] == OP {
-            curr_stack_depth += 1;
-        } else if mf[*i] == CP {
-            let mut chunk_end = 0;
-            if *i > 0 {
-                chunk_end = *i - 1;
-            }
-            *i += 1;
-            scale_backward(mf, mf_start, chunk_end, curr_stack_depth, &mut result_coeffs,
-                           consume_coeff(mf, i, mf_end));
-            curr_stack_depth -= 1;
-            continue;
-        }
-        *i += 1;
-    }
-    if curr_stack_depth != 0 {
-        return Err(ChemikazeError{
-            kind: Parsing,
-            msg: String::from("The opening and closing parentheses don't match.")
-        })
-    }
-    Ok(())
-}
-fn scale_forward(mf: &[u8], mf_start: usize, mf_end: usize,
-                 mut lo: usize, curr_stack_depth: i32, result_coeffs: &mut [u32], group_coeff: u32) {
-    if group_coeff == 1 {
-        return;// usually the case, as people rarely put coefficients in front of MF
-    }
-    let mut depth = curr_stack_depth;
-    while lo < mf_end && depth >= curr_stack_depth {
-        if      mf[lo] == OP { depth += 1}
-        else if mf[lo] == CP { depth -= 1}
-        else if mf[lo] == DOT && depth == curr_stack_depth {
-            break;
-        }
-        result_coeffs[lo - mf_start] *= group_coeff;
-        lo += 1;
-    }
-}
-fn scale_backward(mf: &[u8], mf_start: usize, mut hi: usize/*inclusive*/,
-                  curr_stack_depth: i32, result_coeffs: &mut [u32], group_coeff: u32) {
-    let mut depth = curr_stack_depth;
-    while hi > mf_start && depth <= curr_stack_depth {
-        if      mf[hi] == OP { depth += 1 }
-        else if mf[hi] == CP { depth -= 1 }
-        result_coeffs[hi - mf_start] *= group_coeff;
-        hi -= 1;
-    }
-}
-fn combine_into_atom_counts(elements: &Vec<u8>, coeffs: &Vec<u32>) -> [u32; EARTH_ELEMENT_CNT] {
-    let mut result = [0u32; EARTH_ELEMENT_CNT];
-    let mut i = 0;
-    while i < coeffs.len() {
-        if coeffs[i] > 0 {
-            result[elements[i] as usize] += coeffs[i];
-        }
-        i+=1;
-    }
-    result
-}
-
-fn consume_symbol_and_coeff(mf: &[u8], i: &mut usize, mf_start: usize, mf_end: usize,
-                            result_elements: &mut Vec<u8>, result_coeffs: &mut Vec<u32>) -> Result<(), ChemikazeError> {
-    let result_position = *i - mf_start;
-    let mut b: [u8; 2] = [mf[*i], 0]; // TODO: switch to 2 variables b0, b1? seems unnecessary..
-    *i += 1;
-    if *i < mf_end && is_small_letter(mf[*i]) { // we didn't reach the end and the next byte is small letter
-        b[1] = mf[*i];
-        *i += 1;// increment so that consumeMultiplier() starts parsing the coefficient next
-    }
-    result_elements[result_position] = periodic_table::get_element_by_symbol_bytes(b)?;
-    result_coeffs[result_position] = consume_coeff(mf, i, mf_end);//can handle if *i is out of bounds
-    Ok(())
-}
-
-fn consume_coeff(mf: &[u8], i: &mut usize, mf_end: usize) -> u32 {
-    if *i >= mf_end || !is_digit(mf[*i]) {
-        return 1;
-    }
-    let mut multiplier: u32 = 0;
-    while *i < mf_end && is_digit(mf[*i]) {
-        multiplier = multiplier * 10 + (mf[*i] - _0) as u32;
-        *i += 1;
-    }
-    multiplier
-}
-
 #[cfg(test)]
 mod parse_mf_test {
     use super::*;
+
+    fn parse_mf(mf: &str) -> Result<AtomCounts, ChemikazeError> {
+        MfParser::new().parse_mf(mf)
+    }
 
     #[test]
     fn simple_mf_is_parsed_into_counts() {

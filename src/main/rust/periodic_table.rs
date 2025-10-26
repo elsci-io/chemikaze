@@ -22,6 +22,7 @@ const ELEMENTHASH_TO_ELEMENT: [u8; INDEX_BUCKET_CNT] = build_index();
 
 /// `symbol` - "H", "Na", etc. Only the elements that actually exist on the Earth are used,
 ///           see `EARTH_SYMBOLS` array.
+#[allow(dead_code)]
 pub fn get_element_by_symbol_str(symbol: &str) -> Result<u8, ChemikazeError> {
     let ascii = symbol.as_bytes();
     let mut bytes: [u8; 2] = [0; 2];

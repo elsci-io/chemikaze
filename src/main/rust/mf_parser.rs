@@ -5,7 +5,7 @@ use crate::periodic_table;
 use crate::periodic_table::EARTH_ELEMENT_CNT;
 use crate::util::{*};
 
-const MF_PUNCTUATION: [u8;7] = ['(' as u8, ')' as u8, '+' as u8, '-' as u8, '.' as u8, '[' as u8, ']' as u8];
+const MF_PUNCTUATION: [u8;7] = [OP, CP, b'+', b'-', DOT, b'[', b']'];
 
 //
 // Performance considerations:
@@ -42,10 +42,7 @@ impl MfParser {
         if sanitized.is_empty() {
             return Err(ChemikazeError{ kind: Parsing, msg: "Empty Molecular Formula".into() })
         }
-        self.parse_mf_ascii(sanitized)
-    }
-    pub fn parse_mf_ascii(&mut self, mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
-        self.parse_mf_sanitized(mf.trim_ascii())
+        self.parse_mf_sanitized(sanitized)
     }
 
     pub fn parse_mf_sanitized(&mut self, mf: &[u8]) -> Result<AtomCounts, ChemikazeError> {
@@ -54,46 +51,50 @@ impl MfParser {
         self.coeffs.resize(mf.len(), 0);
         self.elements.resize(mf.len(), 0);
 
+        // First pass: read symbols and their immediate coefficients
+        self.i = 0;
         err_if_invalid_mf(mf, self.read_symbols_and_coeffs(mf))?;
-        err_if_invalid_mf(mf, self.find_and_apply_group_coeff(mf))?;
+
+        // Second pass: apply group coefficients (parentheses and leading numbers)
+        self.i = 0;
+        err_if_invalid_mf(mf, self.apply_group_coeffs(mf))?;
         Ok(AtomCounts{counts: self.combine_into_atom_counts()})
     }
     fn read_symbols_and_coeffs(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
-        self.i = 0;
         while self.i < mf.len() {
-            if mf[self.i].is_ascii_uppercase() {
-                self.consume_symbol_and_coeff(mf)?;
-            } else if mf[self.i].is_ascii_digit() || MF_PUNCTUATION.contains(&mf[self.i]) { // digit - meaning (xx)N or Nxx
+            let letter = mf[self.i];
+            if letter.is_ascii_uppercase() {
+                let start = self.i;
+                self.elements[start] = self.consume_element(mf)?;
+                self.coeffs[start] = self.consume_coeff(mf);
+            } else if letter.is_ascii_digit() || MF_PUNCTUATION.contains(&letter) { // digit - meaning (xx)N or Nxx
                 self.i += 1;
             } else {
                 return Err(ChemikazeError {
                     kind: Parsing,
-                    msg: String::from(format!("Unexpected symbol: {:?}", char::from(mf[self.i])))
+                    msg: String::from(format!("Unexpected symbol: {:?}", char::from(letter)))
                 });
             }
         }
         Ok(())
     }
-    fn consume_symbol_and_coeff(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
-        let result_position = self.i;
-        let first = mf[self.i];
+    fn consume_element(&mut self, input: &[u8]) -> Result<u8, ChemikazeError> {
+        let first = input[self.i];
         self.i += 1;
-        let symbol = if self.i < mf.len() && mf[self.i].is_ascii_lowercase() {
-            let second = mf[self.i];
-            self.i += 1;// increment so that consumeMultiplier() starts parsing the coefficient next
+        let symbol = if self.i < input.len() && input[self.i].is_ascii_lowercase() {
+            let second = input[self.i];
+            self.i += 1;
             [first, second]
         } else {
             [first, 0]
         };
-        self.elements[result_position] = periodic_table::get_element_by_symbol_bytes(symbol)?;
-        self.coeffs[result_position] = self.consume_coeff(mf);//can handle if *i is out of bounds
-        Ok(())
+        periodic_table::get_element_by_symbol_bytes(symbol)
     }
     fn consume_coeff(&mut self, mf: &[u8]) -> u32 {
         if self.i >= mf.len() || !mf[self.i].is_ascii_digit() {
             return 1;
         }
-        let mut multiplier: u32 = 0;
+        let mut multiplier = 0u32;
         while self.i < mf.len() && mf[self.i].is_ascii_digit() {
             multiplier = multiplier * 10 + (mf[self.i] - _0) as u32;
             self.i += 1;
@@ -104,39 +105,35 @@ impl MfParser {
     ///
     /// * At the beginning: 5Cl or O.5Cl - for this we run scale_forward()
     /// * After parenthesis: (CO)2 - for this we run scale_backward()
-    fn find_and_apply_group_coeff(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
-        let mut curr_stack_depth = 0;
-        self.i = 0;
-        'out: while self.i < mf.len() {
+    fn apply_group_coeffs(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
+        let mut stack_depth = 0i32;
+        while self.i < mf.len() {
             if mf[self.i].is_ascii_digit() {  // things like 5Cl, which are relatively rare
                 let coeff = self.consume_coeff(mf);
-                self.scale_forward(mf, self.i, curr_stack_depth, coeff);
+                self.scale_forward(mf, self.i, stack_depth, coeff);
+            }
+            while self.i < mf.len() && mf[self.i].is_ascii_alphanumeric() {
+                self.i += 1; // skip alphanumerics
             }
             if self.i >= mf.len() {
                 break
             }
-            while mf[self.i].is_ascii_alphanumeric() {
-                self.i += 1;
-                if self.i >= mf.len() {
-                    break 'out;
-                }
-            }
             match mf[self.i] {
                 OP => {
-                    curr_stack_depth += 1;
+                    stack_depth += 1;
                     self.i += 1;
                 },
                 CP => {
                     let chunk_end = self.i;
                     self.i += 1;
                     let coeff = self.consume_coeff(mf);
-                    self.scale_backward(mf, chunk_end, curr_stack_depth, coeff);
-                    curr_stack_depth -= 1;
+                    self.scale_backward(mf, chunk_end, stack_depth, coeff);
+                    stack_depth -= 1;
                 },
                 _ => self.i += 1
             }
         }
-        if curr_stack_depth != 0 {
+        if stack_depth != 0 {
             return Err(ChemikazeError{
                 kind: Parsing,
                 msg: String::from("The opening and closing parentheses don't match.")

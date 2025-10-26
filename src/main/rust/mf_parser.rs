@@ -108,8 +108,10 @@ impl MfParser {
         let mut curr_stack_depth = 0;
         self.i = 0;
         'out: while self.i < mf.len() {
-            let coeff = self.consume_coeff(mf);
-            self.scale_forward(mf, self.i, curr_stack_depth, coeff);
+            if mf[self.i].is_ascii_digit() {  // things like 5Cl, which are relatively rare
+                let coeff = self.consume_coeff(mf);
+                self.scale_forward(mf, self.i, curr_stack_depth, coeff);
+            }
             if self.i >= mf.len() {
                 break
             }

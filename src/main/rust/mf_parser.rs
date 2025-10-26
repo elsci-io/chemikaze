@@ -108,17 +108,20 @@ impl MfParser {
                     break 'out;
                 }
             }
-            if mf[self.i] == OP {
-                curr_stack_depth += 1;
-            } else if mf[self.i] == CP {
-                let chunk_end = self.i;
-                self.i += 1;
-                let coeff = self.consume_coeff(mf);
-                self.scale_backward(mf, chunk_end, curr_stack_depth, coeff);
-                curr_stack_depth -= 1;
-                continue;
+            match mf[self.i] {
+                OP => {
+                    curr_stack_depth += 1;
+                    self.i += 1;
+                },
+                CP => {
+                    let chunk_end = self.i;
+                    self.i += 1;
+                    let coeff = self.consume_coeff(mf);
+                    self.scale_backward(mf, chunk_end, curr_stack_depth, coeff);
+                    curr_stack_depth -= 1;
+                },
+                _ => self.i += 1
             }
-            self.i += 1;
         }
         if curr_stack_depth != 0 {
             return Err(ChemikazeError{
@@ -134,10 +137,11 @@ impl MfParser {
         }
         let mut depth = curr_stack_depth;
         while lo < mf.len() && depth >= curr_stack_depth {
-            if      mf[lo] == OP { depth += 1}
-            else if mf[lo] == CP { depth -= 1}
-            else if mf[lo] == DOT && depth == curr_stack_depth {
-                break;
+            match mf[lo] {
+                OP => depth += 1,
+                CP => depth -= 1,
+                DOT if depth == curr_stack_depth => break,
+                _ => {}
             }
             self.coeffs[lo] *= group_coeff;
             lo += 1;
@@ -148,8 +152,11 @@ impl MfParser {
         let mut depth = curr_stack_depth;
         while hi > 0 && depth <= curr_stack_depth {
             hi -= 1;
-            if      mf[hi] == OP { depth += 1 }
-            else if mf[hi] == CP { depth -= 1 }
+            match mf[hi] {
+                OP => depth += 1,
+                CP => depth -= 1,
+                _ => {}
+            }
             self.coeffs[hi] *= group_coeff;
         }
     }

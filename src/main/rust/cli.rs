@@ -16,7 +16,11 @@ fn main() {
     let filepath = &args[1];
     let repeats = 50;
     let content = fs::read_to_string(filepath).expect(&format!("Couldn't read {filepath}"));
-    let lines: Vec<&[u8]> = content.split("\n").map(|l|l.as_bytes()).collect();
+    let mut lines: Vec<Vec<u8>> = Vec::new();
+    for line in content.lines() {
+        lines.push(Vec::from(line.as_bytes()));
+        lines.push(format!("({line})").into_bytes());
+    }
     let mf_cnt = repeats * lines.len();
 
     let mut start = Instant::now();
@@ -26,11 +30,11 @@ fn main() {
     start = Instant::now();
     parse_mfs(&lines, repeats);
     let elapsed = start.elapsed();
-    println!("[RUST BENCHMARK] {mf_cnt} MFs in {:.2?} ({} MF/s)", elapsed,
+    println!("[RUST] {mf_cnt} MFs in {:.2?} ({} MF/s)", elapsed,
              (mf_cnt as f64 / elapsed.as_secs_f64()) as u32);
 }
 
-fn parse_mfs(mfs: &Vec<&[u8]>, n: usize) -> u32 {
+fn parse_mfs(mfs: &Vec<Vec<u8>>, n: usize) -> u32 {
     let mut parser = MfParser::new();
     let mut hcount: u32 = 0;
     for _ in 0..n {

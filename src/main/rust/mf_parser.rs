@@ -7,6 +7,17 @@ use crate::util::{*};
 
 const MF_PUNCTUATION: [u8;7] = ['(' as u8, ')' as u8, '+' as u8, '-' as u8, '.' as u8, '[' as u8, ']' as u8];
 
+//
+// Performance considerations:
+// Tried to figure out what matters and what doesn't in terms of performance:
+// * (De)allocations in the original implementation were a big hit in performance
+// * `opt-level = 3` also mattered
+// * Replacing 'a'.is_digit() and related functions with macros had 0.3% difference
+// * `if` vs `match` - doesn't matter
+//
+// Many optimizations were made by Artur Jakubiec. Here's his a little more idiomatic
+// implementation: https://github.com/Artxiom/chemikaze
+//
 pub struct MfParser {
     i: usize,
     coeffs: Vec<u32>,

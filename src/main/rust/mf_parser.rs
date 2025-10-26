@@ -111,10 +111,7 @@ impl MfParser {
             if mf[self.i] == OP {
                 curr_stack_depth += 1;
             } else if mf[self.i] == CP {
-                let mut chunk_end = 0;
-                if self.i > 0 {
-                    chunk_end = self.i - 1;
-                }
+                let chunk_end = self.i;
                 self.i += 1;
                 let coeff = self.consume_coeff(mf);
                 self.scale_backward(mf, chunk_end, curr_stack_depth, coeff);
@@ -146,14 +143,14 @@ impl MfParser {
             lo += 1;
         }
     }
-    fn scale_backward(&mut self, mf: &[u8], mut hi: usize/*inclusive*/,
+    fn scale_backward(&mut self, mf: &[u8], mut hi: usize/*exclusive*/,
                       curr_stack_depth: i32, group_coeff: u32) {
         let mut depth = curr_stack_depth;
         while hi > 0 && depth <= curr_stack_depth {
+            hi -= 1;
             if      mf[hi] == OP { depth += 1 }
             else if mf[hi] == CP { depth -= 1 }
             self.coeffs[hi] *= group_coeff;
-            hi -= 1;
         }
     }
     fn combine_into_atom_counts(&self) -> [u32; EARTH_ELEMENT_CNT] {

@@ -53,11 +53,11 @@ impl MfParser {
 
         // First pass: read symbols and their immediate coefficients
         self.i = 0;
-        err_if_invalid_mf(mf, self.read_symbols_and_coeffs(mf))?;
+        enrich_msg_if_errs(mf, self.read_symbols_and_coeffs(mf))?;
 
         // Second pass: apply group coefficients (parentheses and leading numbers)
         self.i = 0;
-        err_if_invalid_mf(mf, self.apply_group_coeffs(mf))?;
+        enrich_msg_if_errs(mf, self.apply_group_coeffs(mf))?;
         Ok(AtomCounts{counts: self.combine_into_atom_counts()})
     }
     fn read_symbols_and_coeffs(&mut self, mf: &[u8]) -> Result<(), ChemikazeError> {
@@ -187,7 +187,7 @@ impl MfParser {
 }
 
 
-fn err_if_invalid_mf<T>(mf: &[u8], result: Result<T, ChemikazeError>) -> Result<(), ChemikazeError> {
+fn enrich_msg_if_errs<T>(mf: &[u8], result: Result<T, ChemikazeError>) -> Result<(), ChemikazeError> {
     if result.is_err() {
         let mf_str = bytes_to_string(&mf);
         let msg = String::from(format!("Invalid Molecular Formula: {mf_str}. Details: {}",

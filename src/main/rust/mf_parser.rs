@@ -159,6 +159,9 @@ impl MfParser {
     }
     fn scale_backward(&mut self, mf: &[u8], mut hi: usize/*exclusive*/,
                       curr_stack_depth: i32, group_coeff: u32) {
+        if group_coeff == 1 {
+            return;
+        }
         let mut depth = curr_stack_depth;
         while hi > 0 && depth <= curr_stack_depth {
             hi -= 1;

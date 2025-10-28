@@ -27,12 +27,12 @@ public class MfParserBenchmark {
     @Benchmark
     public void atomCounts(Data data) {
         for (String mf : data.mfs)
-            parser.parseMf(mf);
+            parser.parse(mf);
     }
     @Benchmark
     public void atomCountsWithParentheses(Data data) {
         for (String mf : data.mfsWithParenthesis)
-            parser.parseMf(mf);
+            parser.parse(mf);
     }
 //    @Benchmark
     public void atomCountsCdk(Data data) {

@@ -24,24 +24,29 @@ public final class MfParser {
      */
     private int i = 0;
 
-    public AtomCounts parseMf(String mf) {
+    public AtomCounts parse(String mf) {
         if(mf == null)
             throw new IllegalArgumentException("Molecular Formula was null");
-        return parseMf(mf.getBytes(US_ASCII));
+        return parse(mf.getBytes(US_ASCII));
     }
-    public AtomCounts parseMf(byte[] mf/*MF encoded in ASCII*/) {
-        return parseMf(mf, indexOfStart(mf), indexOfEnd(mf) + 1);
+    public AtomCounts parse(byte[] mf/*MF encoded in ASCII*/) {
+        int mfStart = indexOfStart(mf);
+        int mfEnd = indexOfEnd(mf) + 1;
+        if (mfStart >= mfEnd)
+            throw new IllegalArgumentException("Empty Molecular Formula");
+        return parseSanitized(mf, mfStart, mfEnd);
     }
 
     /**
+     * No validation or trimming happens here - you must have run all the checks yourself.
+     * Otherwise call {@link #parse(byte[])}.
+     *
      * @param mf ASCII bytes with the molecular formula inside. The MF could take the whole array, or it could be in
      *           the middle - so use other params to tell the offset and where it ends.
      * @param mfStart index where the MF actually starts in the array
      * @param mfEnd index (exclusive) where the MF actually ends in the array
      */
-    public AtomCounts parseMf(byte[] mf, int mfStart, int mfEnd) {
-        if (mfStart >= mfEnd)
-            throw new IllegalArgumentException("Empty Molecular Formula");
+    public AtomCounts parseSanitized(byte[] mf, int mfStart, int mfEnd) {
         // We create 2 arrays that contain some of the info about what each of the symbol in MF corresponds to:
         // 1.a `elements[]` is filled where we could parse out the symbol. The values correspond to the order of
         //    elements in PeriodicTable.EARTH_SYMBOLS.

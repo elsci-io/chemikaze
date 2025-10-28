@@ -35,7 +35,7 @@ public class Cli {
         int hydrogenCnt = 0;
         for (int i = 0; i < n; i++)
             for (byte[] line : lines)
-                hydrogenCnt += parser.parseMf(line, 0, line.length).counts[0];
+                hydrogenCnt += parser.parseSanitized(line, 0, line.length).counts[0];
         return hydrogenCnt;
     }
 

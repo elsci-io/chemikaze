@@ -17,9 +17,14 @@ fn main() {
     let repeats = 50;
     let content = fs::read_to_string(filepath).expect(&format!("Couldn't read {filepath}"));
     let mut lines: Vec<Vec<u8>> = Vec::new();
-    for line in content.lines() {
+    for (i, line) in content.lines().enumerate() {
         lines.push(Vec::from(line.as_bytes()));
-        lines.push(format!("({line})").into_bytes());
+        let coeff = i % 20;
+        if coeff < 2 {
+            lines.push(format!("({line})").into_bytes());
+        } else {
+            lines.push(format!("({line}){coeff}").into_bytes());
+        }
     }
     let mf_cnt = repeats * lines.len();
 

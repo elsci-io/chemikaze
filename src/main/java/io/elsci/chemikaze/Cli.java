@@ -9,7 +9,7 @@ import static java.lang.System.*;
 public class Cli {
     public static void main(String[] args) {
         String filename = readFilenameOrExit(args);
-        byte[][] lines = readIntoLines(filename);
+        byte[][] lines = readAndGenerateMfs(filename);
         MfParser parser = new MfParser();
 
         // *** BENCHMARK SETUP ***
@@ -39,7 +39,7 @@ public class Cli {
         return hydrogenCnt;
     }
 
-    private static byte[][] readIntoLines(String filename) {
+    private static byte[][] readAndGenerateMfs(String filename) {
         String[] strings;
         try (FileInputStream in = new FileInputStream(filename)) {
             strings = new String(in.readAllBytes()).split("\n");
@@ -47,9 +47,18 @@ public class Cli {
             err.println("Couldn't open the file, see error below:");
             throw new RuntimeException(e);
         }
-        byte[][] lines = new byte[strings.length][];
-        for (int i = 0; i < strings.length; i++)
-            lines[i] = strings[i].getBytes(StandardCharsets.US_ASCII);
+        byte[][] lines = new byte[strings.length*2][];
+        for (int i = 0; i < strings.length; i++) {
+            lines[i*2] = strings[i].getBytes(StandardCharsets.US_ASCII);
+            StringBuilder b = new StringBuilder()
+                    .append('(')
+                    .append(strings[i])
+                    .append(')');
+            int coeff = i % 20;
+            if(coeff <= 1)
+                b.append(i);
+            lines[i*2+1] = b.toString().getBytes(StandardCharsets.US_ASCII);
+        }
         return lines;
     }
 

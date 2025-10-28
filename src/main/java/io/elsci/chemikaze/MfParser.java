@@ -58,8 +58,8 @@ public final class MfParser {
         // 3. Finally, step through each coefficient, and combine it with the element info into the resulting AtomCounts
         int[] coefficients = new int[mfEnd - mfStart];
         byte[] elements = new byte[mfEnd - mfStart]; // elements that correspond to the symbols
-        readSymbolsAndCoeff(mf, mfStart, mfEnd, elements, coefficients);
-        findAndApplyGroupCoeff(mf, mfStart, mfEnd, coefficients);
+        readSymbolsAndCoeff(mf, mfStart, mfEnd, elements, coefficients); // 1st pass: read symbols and their immediate coefficients
+        findAndApplyGroupCoeff(mf, mfStart, mfEnd, coefficients); // 2nd pass: apply group coefficients (parentheses and leading numbers)
         return new AtomCounts(combineIntoAtomCounts(elements, coefficients));
     }
 
@@ -69,7 +69,7 @@ public final class MfParser {
             if (between(mf[i], A, Z))
                 consumeSymbolAndCoefficient(mf, mfStart, mfEnd, resultElem, resultCoeff);
             // there are only 7 punctuation signs, so hopefully JVM vectorizes and turns it into 1 comparison
-            else if(ArrayUtils.contains(MF_PUNCTUATION, mf[i]) || isDigit(mf[i]))// digit - meaning (xx)N or Nxx
+            else if(isDigit(mf[i]) || ArrayUtils.contains(MF_PUNCTUATION, mf[i]))// digit - meaning (xx)N or Nxx
                 i++;
             else
                 throw new IllegalArgumentException("Invalid Molecular Formula: " + new String(mf, mfStart, mfEnd-mfStart));
@@ -84,13 +84,12 @@ public final class MfParser {
      */
     private void findAndApplyGroupCoeff(byte[] mf, int mfStart, int mfEnd, int[] resultCoeff) {
         int currStackDepth = 0;
-        out: for (i = mfStart; i < mfEnd;) {
+        for (i = mfStart; i < mfEnd;) {
             scaleForward(mf, mfStart, mfEnd, i, currStackDepth, resultCoeff, consumeCoeff(mf, mfEnd));
+            while(i < mfEnd && isAlphanumeric(mf[i]))
+                i++;// skip elements and their coeffs
             if(i == mfEnd)
                 break;
-            while(isAlphanumeric(mf[i])) // skip all letters, numbers, dots
-                if(++i >= mfEnd)
-                    break out;
             if(mf[i] == '(')
                 currStackDepth++;
             else if (mf[i] == ')') {
@@ -121,14 +120,14 @@ public final class MfParser {
      * @param lo the index inside mf where we start applying {@code groupCoeff} and go right from there
      */
     private void scaleForward(byte[] mf, int mfStart, int mfEnd, int lo,
-                              int currStackDepth, int[] resultCoeff, int groupCoeff) {
+                              int stackDepth, int[] resultCoeff, int groupCoeff) {
         if (groupCoeff == 1)
             return;// usually the case, as people rarely put coefficients in front of MF
-        int depth = currStackDepth;
-        for (; lo < mfEnd && depth >= currStackDepth; lo++) {
+        int depth = stackDepth;
+        for (; lo < mfEnd && depth >= stackDepth; lo++) {
             if     (mf[lo] == '(') depth++;
             else if(mf[lo] == ')') depth--;
-            else if(mf[lo] == '.' && depth == currStackDepth)
+            else if(mf[lo] == '.' && depth == stackDepth)
                 break;
             resultCoeff[lo - mfStart] *= groupCoeff;
         }
@@ -138,16 +137,23 @@ public final class MfParser {
      * @param hi index in mf where we start applying {@code groupCoeff} and go left from there
      */
     private void scaleBackward(byte[] mf, int mfStart, int hi/*inclusive*/,
-                               int currStackDepth, int[] resultCoeff, int groupCoeff) {
-        int depth = currStackDepth;
-        for (; hi >= mfStart && depth <= currStackDepth; hi--) {
+                               int stackDepth, int[] resultCoeff, int groupCoeff) {
+        if (groupCoeff == 1)
+            return;
+        int depth = stackDepth;
+        for (; hi >= mfStart && depth <= stackDepth; hi--) {
             if     (mf[hi] == '(') depth++;
             else if(mf[hi] == ')') depth--;
             resultCoeff[hi - mfStart] *= groupCoeff;
         }
     }
 
-    private int consumeCoeff(byte[] mf, int mfEnd) {// reads a number starting from current position, if no number then 1 is returned
+    /**
+     * Reads a number starting from current position.
+     * @param mfEnd exclusive
+     * @return 1 if no number available at current position
+     */
+    private int consumeCoeff(byte[] mf, int mfEnd) {
         if(i >= mfEnd || !isDigit(mf[i]))
             return 1;
         int multiplier = 0;

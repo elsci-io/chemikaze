@@ -16,6 +16,12 @@ import static java.nio.charset.StandardCharsets.US_ASCII;
 //    a big file in which case start/end could be somewhere in the middle of the file.
 // * Many methods accept mf, startMf, endMf - it's a single unit that we parse, and it can be considered as a single
 //   parameter
+
+// Performance considerations:
+// 1. It's possible to speed things up by 5% if instead of recreating `elements` & `coefficients` arrays we were
+//    keeping the as fields and would simply zero out all elements. Since the gains are so small, decided not to take
+//    this route. This strategy is much more important for C & Rust implementations that call OS for memory allocation.
+//    JVM seems to be doing a good job GCing these short-living arrays.
 public final class MfParser {
     private final static byte[] MF_PUNCTUATION = new byte[]{'(', ')', '+', '-', '.', '[', ']'};
     /**
@@ -61,11 +67,12 @@ public final class MfParser {
         //    Coeffs (before):                                    0|2|0|1|0|0|1|0|1|0|0|0
         //    Coeffs (after multiplication by group coeffs):      0|4|0|2|0|0|5|0|5|0|0|0
         // 3. Finally, step through each coefficient, and combine it with the element info into the resulting AtomCounts
-        int[] coefficients = new int[mfEnd - mfStart];
-        byte[] elements = new byte[mfEnd - mfStart]; // elements that correspond to the symbols
+        int len = mfEnd - mfStart;
+        int[] coefficients = new int[len];
+        byte[] elements = new byte[len];
         readSymbolsAndCoeff(mf, mfStart, mfEnd, elements, coefficients); // 1st pass: read symbols and their immediate coefficients
         findAndApplyGroupCoeff(mf, mfStart, mfEnd, coefficients); // 2nd pass: apply group coefficients (parentheses and leading numbers)
-        return new AtomCounts(combineIntoAtomCounts(elements, coefficients));
+        return new AtomCounts(combineIntoAtomCounts(elements, coefficients, len));
     }
 
     private void readSymbolsAndCoeff(byte[] mf, int mfStart, int mfEnd,
@@ -166,9 +173,8 @@ public final class MfParser {
             multiplier = multiplier * 10 + (mf[i] - _0);
         return multiplier;
     }
-    private int[] combineIntoAtomCounts(byte[] elements, int[] coefficients) {
+    private int[] combineIntoAtomCounts(byte[] elements, int[] coefficients, int len) {
         int[] counts = new int[PeriodicTable.getEarthElementCount()];
-        int len = coefficients.length;
         for (i = 0; i < len; i++)
             if(coefficients[i] != 0)
                 counts[elements[i]] += coefficients[i];

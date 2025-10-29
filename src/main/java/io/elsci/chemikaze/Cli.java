@@ -18,7 +18,7 @@ public class Cli {
 
         // *** WARMUP ***
         long start = System.nanoTime();
-        parseMfs(parser, lines, repeats);
+        parseMfs(parser, lines, 10);
         out.printf("Finished warmup in %.2fs %n", (System.nanoTime() - start)/1e9F);
 
         // *** BENCHMARK ***

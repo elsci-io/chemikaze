@@ -19,6 +19,10 @@ size_t getFileSize(FILE *f) {
 
 size_t readAllBytes(char *filepath, char **buf) {
 	FILE *f = fopen(filepath, "r");
+	if (!f) {
+		perror("Couldn't open the MF file");
+		exit(1);
+	}
 	size_t size = getFileSize(f);
 	*buf = malloc(size);
 	if (*buf == NULL) {
@@ -40,16 +44,16 @@ size_t readAllBytes(char *filepath, char **buf) {
 
 typedef struct { char *start, *end/*exclusive*/; } MfBounds;
 
-size_t parseAllMfs(MfBounds *buf, size_t size) {
+size_t parseAllMfs(MfParser *parser, MfBounds *buf, size_t size) {
 	size_t hcount = 0;
 	ChemikazeError *error = nullptr;
 	for (size_t i = 0; i < size; buf++, i++) {
-		AtomCounts *counts = parseMfChunk(buf->start, buf->end, &error);
-		hcount += counts->counts[0];
+		AtomCounts *counts = parseMfSanitized(parser, buf->start, buf->end, &error);
 		if (counts == nullptr) {
-			perror(error->msg);
+			ChemikazeError_logAndDestroy(error);
 			exit(1);
 		}
+		hcount += counts->counts[0];
 		AtomCounts_free(counts);
 	}
 	return hcount;
@@ -77,7 +81,7 @@ unsigned findMfBounds(char *buf, size_t size, MfBounds **mfBounds) {
 	return mfcount;
 }
 
-int main(int argc, [[maybe_unused]] char **argv) {
+int main(int argc, char **argv) {
 	register_signals();
 	if (argc <= 1) {
 		fprintf(stderr, "Provider the file with Molecular Formulas as the 1st parameter\n");
@@ -92,14 +96,20 @@ int main(int argc, [[maybe_unused]] char **argv) {
 	unsigned mfCnt = findMfBounds(buf, size, &mfs);
 	unsigned totalParsed = repeats * mfCnt;
 
+	MfParser *parser = MfParser_new();
 	// START BENCHMARK:
 	clock_t start = clock();
+	for (int i = 0; i < 10; i++)
+		parseAllMfs(parser, mfs, mfCnt);
+	printf("Warmed up in %f sec\n", (double)(clock() - start)/CLOCKS_PER_SEC);
+	start = clock();
 	for (int i = 0; i < repeats; i++)
-		parseAllMfs(mfs, mfCnt);
+		parseAllMfs(parser, mfs, mfCnt);
 	double elapsed = (double)(clock()-start)/CLOCKS_PER_SEC;
 	printf("[C BENCHMARK] %d MFs in %f sec (%d MF/s)\n", totalParsed, elapsed, (int) (totalParsed/elapsed));
 
 	free(mfs);
 	free(buf);
+	MfParser_destroy(parser);
 	return 0;
 }

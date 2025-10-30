@@ -10,6 +10,59 @@
 #include "AtomCounts.h"
 #include "error.h"
 
+struct MfParser {
+	ChemElement *elements;
+	unsigned *coeffs;
+	size_t len;
+};
+
+void MfParser_destroy(MfParser *parser) {
+	if (parser) {
+		if (parser->coeffs)
+			free(parser->coeffs);
+		if (parser->elements)
+			free(parser->elements);
+		free(parser);
+	}
+}
+
+MfParser* MfParser_new() {
+	MfParser *parser = calloc(sizeof(MfParser), 1);
+	if (!parser)
+		return nullptr;
+	parser->len = 20;
+	parser->coeffs = calloc(sizeof(*parser->coeffs), parser->len);
+	parser->elements = calloc(sizeof(*parser->elements), parser->len);
+	if (parser->coeffs == NULL || parser->elements == NULL) {
+		MfParser_destroy(parser);
+		return nullptr;
+	}
+	return parser;
+}
+
+ChemikazeError* reallocOrErr(void **oldPointer, size_t newLen) {
+	void *newPointer = realloc(*oldPointer, newLen);
+	if (newPointer == NULL) {
+		// free(*oldPointer);
+		return ChemikazeError_new(OOM, nullptr);
+	}
+	*oldPointer = newPointer;
+	return nullptr;
+}
+ChemikazeError* MfParser_ensureLengths(MfParser *parser, size_t mfLen) {
+	if (mfLen > parser->len) {
+		ChemikazeError *error;
+		if ((error = reallocOrErr((void **)&parser->coeffs, sizeof(*parser->coeffs) * mfLen)) != NULL)
+			return error;
+		if ((error = reallocOrErr((void **)&parser->elements, sizeof(*parser->elements) * mfLen)) != NULL)
+			return error;
+		parser->len = mfLen;
+	}
+	memset(parser->coeffs, 0, sizeof(*parser->coeffs)*mfLen);
+	memset(parser->elements, 0, sizeof(*parser->elements)*mfLen);
+	return nullptr;
+}
+
 constexpr unsigned MF_PUNCTUATION_LEN = 7;
 constexpr char MF_PUNCTUATION[MF_PUNCTUATION_LEN] = {'(', ')', '+', '-', '.', '[', ']'};
 
@@ -138,7 +191,7 @@ AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *c
 	return result;
 }
 
-AtomCounts* parseMf(const char *mf, ChemikazeError **error) {
+AtomCounts* parseMf(MfParser *parser, const char *mf, ChemikazeError **error) {
 	if (mf == nullptr) {
 		*error = ChemikazeError_new(NULL_POINTER, Chemikaze_toString("MF is null"));
 		return nullptr;
@@ -148,47 +201,40 @@ AtomCounts* parseMf(const char *mf, ChemikazeError **error) {
 	const char *mfEnd = mf + strlen(mf) - 1;
 	while (*mfEnd == ' ')
 		mfEnd--;// trim right
-	return parseMfChunk(mf, mfEnd + 1/*exclusive*/, error);
+	return parseMfSanitized(parser, mf, mfEnd + 1/*exclusive*/, error);
 }
-AtomCounts* parseMfChunk(const char *mf, const char *mfEnd, ChemikazeError **error) {
+
+AtomCounts* parseMfSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error) {
 	AtomCounts *result = nullptr;
 	if (mf >= mfEnd) {
 		*error = ChemikazeError_new(PARSE, Chemikaze_toString("Empty Molecular Formula"));
 		return nullptr;
 	}
 	size_t mfLen = mfEnd - mf;
-	unsigned coeff[mfLen] = {};
-	ChemElement elements[mfLen] = {};
-	// void *tmpMem = malloc(mfLen * (sizeof(int) + sizeof(ChemElement)));
+	if ((*error = MfParser_ensureLengths(parser, mfLen)) != nullptr)
+		goto free;
 
-	// if (tmpMem == NULL) {
-		// *error = ChemikazeError_new(OOM, nullptr);
-		// goto free;
-	// }
-	// unsigned *coeff = tmpMem;
-	// ChemElement *elements = tmpMem + mfLen * sizeof(int);
-
-	readSymbolsAndCoeffs(mf, mfEnd, elements, coeff, error);
+	readSymbolsAndCoeffs(mf, mfEnd, parser->elements, parser->coeffs, error);
 	if (*error)
 		goto free;
-	if ((*error = findAndApplyGroupCoeffs(mf, mfEnd, coeff)))
+	if ((*error = findAndApplyGroupCoeffs(mf, mfEnd, parser->coeffs)))
 		goto free;
 	if ((result = AtomCounts_new()) == nullptr) {
 		*error = ChemikazeError_new(OOM, nullptr);
 		goto free;
 	}
-	combineIntoAtomCounts(elements, coeff, mfLen, result);
+	combineIntoAtomCounts(parser->elements, parser->coeffs, mfLen, result);
 free: // Still playing between allocating tmp memory on heap vs arrays on stack. stack seems to be a little better.
 	// free(tmpMem);
 	return result;
 }
 
-AtomCounts* parseMfOrPanic(const char *mf) {
+AtomCounts* parseMfOrPanic(MfParser *parser, const char *mf) {
 	ChemikazeError *error = nullptr;
-	AtomCounts *atoms = parseMf(mf, &error);
+	AtomCounts *atoms = parseMf(parser, mf, &error);
 	if (error) {
 		fputs(error->msg, stderr);
-		ChemikazeError_free(error);
+		ChemikazeError_destroy(error);
 		exit(1);
 	}
 	return atoms;

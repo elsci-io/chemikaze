@@ -3,7 +3,11 @@
 #include "AtomCounts.h"
 #include "error.h"
 
-AtomCounts* parseMfChunk(const char *mf, const char *mfEnd, ChemikazeError **error);
-AtomCounts* parseMf(const char *mf, ChemikazeError **error);
-AtomCounts* parseMfOrPanic(const char *mf);
+typedef struct MfParser MfParser;
+MfParser* MfParser_new();
+void MfParser_destroy(MfParser *parser);
+
+AtomCounts* parseMfSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error);
+AtomCounts* parseMf(MfParser *parser, const char *mf, ChemikazeError **error);
+AtomCounts* parseMfOrPanic(MfParser *parser, const char *mf);
 #endif //ELSCI_CHEMIKAZE_MF_PARSER_H

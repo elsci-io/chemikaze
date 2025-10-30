@@ -20,6 +20,9 @@ typedef struct {
  */
 ChemikazeError* ChemikazeError_new(ChemikazeErrorCode code, char *msg);
 ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const char *mf, size_t mfLen);
-void ChemikazeError_free(ChemikazeError *e);
+void ChemikazeError_destroy(ChemikazeError *e);
+void ChemikazeError_log(ChemikazeError *e);
+void ChemikazeError_logAndDestroy(ChemikazeError *e);
+
 char* Chemikaze_toString(const char *str);
 #endif //ELSCI_CHEMIKAZE_ERROR_H

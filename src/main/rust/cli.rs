@@ -29,13 +29,13 @@ fn main() {
     let mf_cnt = repeats * lines.len();
 
     let mut start = Instant::now();
-    parse_mfs(&lines, repeats);
+    parse_mfs(&lines, 10);
     println!("Finished warmup in {:.3?}", start.elapsed());
 
     start = Instant::now();
-    parse_mfs(&lines, repeats);
+    let hcount = parse_mfs(&lines, repeats);
     let elapsed = start.elapsed();
-    println!("[RUST] {mf_cnt} MFs in {:.2?} ({} MF/s)", elapsed,
+    println!("[RUST] {mf_cnt} MFs in {:.2?} ({} MF/s). Hydrogens: {hcount}", elapsed,
              (mf_cnt as f64 / elapsed.as_secs_f64()) as u32);
 }
 

@@ -23,16 +23,17 @@ public class Cli {
 
         // *** BENCHMARK ***
         start = System.nanoTime();
-        parseMfs(parser, lines, repeats);
+        long hcount = parseMfs(parser, lines, repeats);
         long end = System.nanoTime();
         int speed = (int)(mfCnt / ((end - start)/1e9));
 
-        out.printf("[JAVA BENCHMARK] %d MFs in %.2fs (%d MF/s) %n", mfCnt, (end-start)/1e9F, speed);
+        out.printf("[JAVA BENCHMARK] %d MFs in %.2fs (%d MF/s). Hydrogens: %d %n",
+                mfCnt, (end-start)/1e9F, speed, hcount);
     }
 
     @SuppressWarnings({"UnusedReturnValue", "SameParameterValue"})
-    private static int parseMfs(MfParser parser, byte[][] lines, int n) {
-        int hydrogenCnt = 0;
+    private static long parseMfs(MfParser parser, byte[][] lines, int n) {
+        long hydrogenCnt = 0;
         for (int i = 0; i < n; i++)
             for (byte[] line : lines)
                 hydrogenCnt += parser.parseSanitized(line, 0, line.length).counts[0];
@@ -55,7 +56,7 @@ public class Cli {
                     .append(strings[i])
                     .append(')');
             int coeff = i % 20;
-            if(coeff <= 1)
+            if(coeff > 1)
                 b.append(i);
             lines[i*2+1] = b.toString().getBytes(StandardCharsets.US_ASCII);
         }

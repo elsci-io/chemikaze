@@ -18,7 +18,7 @@ public class Cli {
 
         // *** WARMUP ***
         long start = System.nanoTime();
-        parseMfs(parser, lines, 10);
+        parseMfs(parser, lines, 15);
         out.printf("Finished warmup in %.2fs %n", (System.nanoTime() - start)/1e9F);
 
         // *** BENCHMARK ***
@@ -57,7 +57,7 @@ public class Cli {
                     .append(')');
             int coeff = i % 20;
             if(coeff > 1)
-                b.append(i);
+                b.append(coeff);
             lines[i*2+1] = b.toString().getBytes(StandardCharsets.US_ASCII);
         }
         return lines;

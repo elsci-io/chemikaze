@@ -39,12 +39,12 @@ fn main() {
              (mf_cnt as f64 / elapsed.as_secs_f64()) as u32);
 }
 
-fn parse_mfs(mfs: &Vec<Vec<u8>>, n: usize) -> u32 {
+fn parse_mfs(mfs: &Vec<Vec<u8>>, n: usize) -> u64 {
     let mut parser = MfParser::new();
-    let mut hcount: u32 = 0;
+    let mut hcount = 0u64;
     for _ in 0..n {
         for mf in mfs {
-            hcount += parser.parse_mf_sanitized(mf).unwrap().counts[0];
+            hcount += parser.parse_mf_sanitized(mf).unwrap().counts[0] as u64;
         }
     }
     hcount // return something so that this isn't optimized out

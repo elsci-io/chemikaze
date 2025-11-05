@@ -20,6 +20,7 @@ void ChemikazeError_log(ChemikazeError *e) {
 		fprintf(stderr, "Parsing error: ");
 	if (e->msg != NULL && strlen(e->msg) > 0)
 		fprintf(stderr, "%s", e->msg);
+	fprintf(stderr, "\n");
 }
 void ChemikazeError_logAndDestroy(ChemikazeError *e) {
 	ChemikazeError_log(e);

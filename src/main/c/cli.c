@@ -45,17 +45,20 @@ size_t readAllBytes(char *filepath, char **buf) {
 
 typedef struct { char *start, *end/*exclusive*/; } MfBounds;
 
-size_t parseAllMfs(MfParser *parser, MfBounds *buf, size_t size) {
+size_t parseAllMfs(MfParser *parser, MfBounds *buf, size_t size, int repeats) {
 	size_t hcount = 0;
 	ChemikazeError *error = nullptr;
-	for (size_t i = 0; i < size; buf++, i++) {
-		AtomCounts *counts = parseMfSanitized(parser, buf->start, buf->end, &error);
-		if (counts == nullptr) {
-			ChemikazeError_logAndDestroy(error);
-			exit(1);
+	for (int r = 0; r < repeats; r++) {
+		for (size_t i = 0; i < size; i++) {
+			MfBounds *currMf = buf+i;
+			AtomCounts *counts = parseMfSanitized(parser, currMf->start, currMf->end, &error);
+			if (counts == nullptr) {
+				ChemikazeError_logAndDestroy(error);
+				exit(1);
+			}
+			hcount += counts->counts[0];
+			AtomCounts_free(counts);
 		}
-		hcount += counts->counts[0];
-		AtomCounts_free(counts);
 	}
 	return hcount;
 }
@@ -140,14 +143,11 @@ int main(int argc, char **argv) {
 
 	// START WARMUP:
 	clock_t start = clock();
-	for (int i = 0; i < 10; i++)
-		parseAllMfs(parser, mfBounds, mfCnt);
+	parseAllMfs(parser, mfBounds, mfCnt, 10);
 	printf("Warmed up in %f sec\n", (double)(clock() - start)/CLOCKS_PER_SEC);
 	// START BENCHMARK:
 	start = clock();
-	size_t hcount = 0;
-	for (int i = 0; i < repeats; i++)
-		hcount += parseAllMfs(parser, mfBounds, mfCnt);
+	size_t hcount = parseAllMfs(parser, mfBounds, mfCnt, repeats);
 	double elapsed = (double)(clock()-start)/CLOCKS_PER_SEC;
 	printf("[C BENCHMARK] %d MFs in %f sec (%d MF/s). Hydrogens: %lu\n",
 		totalParsed, elapsed, (int) (totalParsed/elapsed), hcount);

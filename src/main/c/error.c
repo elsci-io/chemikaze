@@ -35,6 +35,7 @@ ChemikazeError* ChemikazeError_newParsing(const char *staticMsg, const char *mf,
 	strcat(msg, staticMsg);
 	return ChemikazeError_new(PARSE, msg);
 }
+// TODO: it doesn't make sense to allocate more memory if we got OOM, need to create a constant for OOM error
 ChemikazeError* ChemikazeError_new(ChemikazeErrorCode code, char *msg) {
 	ChemikazeError *e = calloc(sizeof(ChemikazeError), 1);
 	e->code = code;

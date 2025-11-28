@@ -9,8 +9,8 @@ typedef enum {
 } ChemikazeErrorCode;
 
 typedef struct {
-	ChemikazeErrorCode code;
 	char* msg;
+	ChemikazeErrorCode code;
 } ChemikazeError;
 
 /**

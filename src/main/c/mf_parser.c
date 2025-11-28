@@ -191,7 +191,7 @@ AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *c
 	return result;
 }
 
-AtomCounts* parseMf(MfParser *parser, const char *mf, ChemikazeError **error) {
+AtomCounts* MfParser_parse(MfParser *parser, const char *mf, ChemikazeError **error) {
 	if (mf == nullptr) {
 		*error = ChemikazeError_new(NULL_POINTER, Chemikaze_toString("MF is null"));
 		return nullptr;
@@ -201,10 +201,10 @@ AtomCounts* parseMf(MfParser *parser, const char *mf, ChemikazeError **error) {
 	const char *mfEnd = mf + strlen(mf) - 1;
 	while (*mfEnd == ' ')
 		mfEnd--;// trim right
-	return parseMfSanitized(parser, mf, mfEnd + 1/*exclusive*/, error);
+	return MfParser_parseSanitized(parser, mf, mfEnd + 1/*exclusive*/, error);
 }
 
-AtomCounts* parseMfSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error) {
+AtomCounts* MfParser_parseSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error) {
 	AtomCounts *result = nullptr;
 	if (mf >= mfEnd) {
 		*error = ChemikazeError_new(PARSE, Chemikaze_toString("Empty Molecular Formula"));
@@ -229,9 +229,9 @@ free: // Still playing between allocating tmp memory on heap vs arrays on stack.
 	return result;
 }
 
-AtomCounts* parseMfOrPanic(MfParser *parser, const char *mf) {
+AtomCounts* MfParser_parseOrPanic(MfParser *parser, const char *mf) {
 	ChemikazeError *error = nullptr;
-	AtomCounts *atoms = parseMf(parser, mf, &error);
+	AtomCounts *atoms = MfParser_parse(parser, mf, &error);
 	if (error) {
 		fputs(error->msg, stderr);
 		ChemikazeError_destroy(error);

@@ -51,7 +51,7 @@ size_t parseAllMfs(MfParser *parser, MfBounds *buf, size_t size, int repeats) {
 	for (int r = 0; r < repeats; r++) {
 		for (size_t i = 0; i < size; i++) {
 			MfBounds *currMf = buf+i;
-			AtomCounts *counts = parseMfSanitized(parser, currMf->start, currMf->end, &error);
+			AtomCounts *counts = MfParser_parseSanitized(parser, currMf->start, currMf->end, &error);
 			if (counts == nullptr) {
 				ChemikazeError_logAndDestroy(error);
 				exit(1);

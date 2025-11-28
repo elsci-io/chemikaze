@@ -9,7 +9,7 @@
 
 char* parseMfOrFail(const char *mf) {
 	MfParser *parser = MfParser_new();
-	AtomCounts *atoms = parseMfOrPanic(parser, mf);
+	AtomCounts *atoms = MfParser_parseOrPanic(parser, mf);
 	char *toMf = AtomCounts_toString(atoms);
 	AtomCounts_free(atoms);
 	MfParser_destroy(parser);
@@ -18,7 +18,7 @@ char* parseMfOrFail(const char *mf) {
 char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't many tests so let's ignore that
 	ChemikazeError *error = nullptr;
 	MfParser *parser = MfParser_new();
-	AtomCounts *atoms = parseMf(parser, mf, &error);
+	AtomCounts *atoms = MfParser_parse(parser, mf, &error);
 	if (!error) {
 		logError("Expected an error!");
 		exit(1);

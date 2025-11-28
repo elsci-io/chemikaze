@@ -17,7 +17,7 @@ void MfParser_destroy(MfParser *parser);
  * @param error is nullptr if no error happened
  * @return if null, then check the error
  */
-AtomCounts* parseMfSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error);
-AtomCounts* parseMf(MfParser *parser, const char *mf, ChemikazeError **error);
-AtomCounts* parseMfOrPanic(MfParser *parser, const char *mf);
+AtomCounts* MfParser_parseSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error);
+AtomCounts* MfParser_parse(MfParser *parser, const char *mf, ChemikazeError **error);
+AtomCounts* MfParser_parseOrPanic(MfParser *parser, const char *mf);
 #endif //ELSCI_CHEMIKAZE_MF_PARSER_H

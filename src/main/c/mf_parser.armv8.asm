@@ -5,15 +5,27 @@
 .global _isBigLetter
 .global _MfParser_new
 .global _MfParser_destroy
+.global _MfParser_parseSanitized
 
 .data
-    ; field offsets:
+    ; struct MfParser field offsets and so on:
     .equ MfParser_elements, 0
     .equ MfParser_coeffs, 8
     .equ MfParser_len, 16
     .equ MfParser_SIZE, 24 ; total size after alignment
     .equ MfParser_DEFAULT_ELEMENTS_CNT, 20 ; number of elements originally in the array
 
+    ; enum ChemikazeErrorCode:
+    .equ ChemikazeErrorCode_PARSE, 0
+    .equ ChemikazeErrorCode_OOM, 1
+    .equ ChemikazeErrorCode_NULL_POINTER, 2
+
+    ; struct ChemikazeError field offsets:
+    .equ ChemikazeError_msg, 0 ; char *msg
+    .equ ChemikazeError_code, 8 ; ChemikazeErrorCode
+    .equ ChemikazeError_SIZE, 16 ; char *msg
+
+    ChemikazeError_EMPTY_MOL_MSG: .asciz "Empty Molecular Formula"
 .text
 
 _MfParser_new:
@@ -72,6 +84,77 @@ _MfParser_destroy:
     ldr x19, [sp, 16] ; restore x19 register
     ldp fp, lr, [sp], 32; restore old frame pointer and return address
  _MfParser_destroy_ret:
+    ret
+
+;
+; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
+; a non-sanitized method.
+;
+; @param MfParser *parser
+; @param const char *mf start of the molecular formula
+; @param const char *mfEnd end of the formula, exclusive
+; @param ChemikazeError** to fill if error occurs
+; @return x0 AtomCounts* or null. If null then check the error param.
+;
+_MfParser_parseSanitized:
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
+    stp x19, x20, [sp, -16]!
+        mov x19, x3 ; ChemikazeError* to be optionally filled
+    cmp x1, x2
+        b.hs _MfParser_parseSanitized__emptyMfError
+_MfParser_parseSanitized__out:
+    ldp x19, x20, [sp], 16
+    ldp fp, lr, [sp], 16
+    ret
+_MfParser_parseSanitized__emptyMfError:
+    mov x0, ChemikazeErrorCode_PARSE
+        adrp x1, ChemikazeError_EMPTY_MOL_MSG@page
+        add x1, x1, ChemikazeError_EMPTY_MOL_MSG@pageoff
+        bl _ChemikazeError_new
+    str x0, [x19] ; return ChemikazeError*
+    mov x0, 0 ; return null
+    b _MfParser_parseSanitized__out
+
+; @param void **oldPointer
+; @param size_t newLen
+; @return ChemikazeError* or nullptr
+MfParser_reallocOrErr:
+    stp fp, lr, [sp, -16]!
+    mov fp, sp
+    str x19, [sp, -8]!
+
+    mov x2, x0
+
+    ldr x0, [x0] ; realloc(*oldPointer, newLen)
+        bl _realloc ; TODO: process OOM
+    str x0, [x19] ; *oldPointer = newPointer;
+    mov x0, 0 ; return nullptr if no error
+
+    ldr x19, [sp], 8
+    ldp fp, lr, [sp], 16
+    ret
+
+;
+; @param ChemikazeCode code
+; @param char *msg is owned by the error itself now, so the function owning the error must call the respective destructor
+; @return ChemikazeError*
+;
+_ChemikazeError_new:
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
+    stp x19, x20, [sp, -16]!
+        mov x19, x0
+        mov x20, x1
+
+    mov x0, ChemikazeError_SIZE
+        mov x1, 1
+        bl _calloc ; TODO: handle OOM
+    str x19, [x0, ChemikazeError_code]
+    str x20, [x0, ChemikazeError_msg]
+
+    ldp x19, x20, [sp], 16
+    ldp fp, lr, [sp], 16
     ret
 
 ; @param unsigned c

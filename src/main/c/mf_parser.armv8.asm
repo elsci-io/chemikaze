@@ -7,6 +7,7 @@
 .global _MfParser_destroy
 .global _MfParser_parseSanitized
 .global _ptable_getElementBySymbol_short
+.global _MfParser_consumeCoeff
 
 .data
     ; struct MfParser field offsets and so on:
@@ -193,6 +194,42 @@ MfParser_consumeSymbolAndCoeff:
     mov x6, 1
     str x5, [x3]
     str x6, [x4]
+    ret
+
+; @param char **i symbol to start with
+; @param const char *mfEnd - end of the MF
+; @var x2 *i address of the symbol
+; @var w3 **i the symbol itself
+; @var w4 the result (number)
+; @var x5 i for the loop
+; @var w10 is a constant 10 for multiplication
+_MfParser_consumeCoeff:
+    mov w10, 10
+    mov w4, 1 ; result = 1 (default)
+    ldr x2, [x0] ; load address *i
+    cmp x2, x1 ; *i >= mfEnd
+        b.hs _MfParser_consumeCoeff__ret
+    ldrb w3, [x2] ; load value (symbol) **i
+    sub w3, w3, '0' ;  0 <= i <= 9
+        cmp w3, 9
+            b.hi _MfParser_consumeCoeff__ret
+    ; now let's calc the real result w4
+    mov w4, 0 ; result = 0
+_MfParser_consumeCoeff__loop:
+    ; loop conditions:
+    cmp x2, x1
+        b.hs _MfParser_consumeCoeff__ret
+    ldrb w3, [x2], 1 ; char c = *i
+    sub w3, w3, '0' ;  0 <= i <= 9
+        cmp w3, 9
+        b.hi _MfParser_consumeCoeff__ret
+    ; loop body:
+    madd w4, w4, w10, w3 ; result = result * 10 + (**i - '0');
+    ; store new i (incremented in the ldrb):
+    str x2, [x0]
+    b _MfParser_consumeCoeff__loop
+_MfParser_consumeCoeff__ret:
+    mov w0, w4
     ret
 
 ; @param void **oldPointer

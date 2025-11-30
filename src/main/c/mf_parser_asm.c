@@ -32,8 +32,26 @@ int log_if_error(ChemikazeError* error, AtomCounts* counts) {
 	return 0;
 }
 extern ChemElement ptable_getElementBySymbol_short(int symbol);
+extern int MfParser_consumeCoeff(const char **i, const char *mfEnd);
 
 int main() {
+	// const char *num = "H1O12";
+	// const char *start = num;
+	// printf("Consume: %d\n", MfParser_consumeCoeff(&start, num));
+	// printf("i: %ld\n", (start-num));
+	// start = num;
+	// printf("Consume: %d\n", MfParser_consumeCoeff(&start, num+1));
+	// printf("i: %ld\n", (start-num));
+	// start = num+1;
+	// printf("Consume: %d\n", MfParser_consumeCoeff(&start, num+1));
+	// printf("i: %ld\n", (start-num));
+	// start = num+1;
+	// printf("Consume: %d\n", MfParser_consumeCoeff(&start, num+3));
+	// printf("i: %ld\n", (start-num));
+	// start = num+3;
+	// printf("Consume: %d\n", MfParser_consumeCoeff(&start, num+5));
+	// printf("i: %ld\n", (start-num));
+
 	printf("Is numeric=%d\n", isBigLetter('c'));
 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 	MfParser *parser = MfParser_new();

@@ -8,6 +8,7 @@
 .global _MfParser_parseSanitized
 .global _ptable_getElementBySymbol_short
 .global _MfParser_consumeCoeff
+.global _MfParser_consumeSymbolAndCoeff
 
 .data
     ; struct MfParser field offsets and so on:
@@ -171,7 +172,7 @@ MfParser_readSymbolsAndCoeffs__bigLetter:
     adrp x0, MfParser_readSymbolsAndCoeffs__bigLetter_name@page
         add x0, x0, MfParser_readSymbolsAndCoeffs__bigLetter_name@pageoff
         bl _printf
-    bl MfParser_consumeSymbolAndCoeff
+    bl _MfParser_consumeSymbolAndCoeff
     mov x0, 16
     b MfParser_readSymbolsAndCoeffs__loop
 MfParser_readSymbolsAndCoeffs__out:
@@ -180,20 +181,56 @@ MfParser_readSymbolsAndCoeffs__out:
     ldp fp, lr, [sp], 16
     ret
 
-; @param const char *mf - start of the MF
-; @param const char **i - exclusive
-; @param const char *mfEnd - exclusive
-; @param [x3] ChemElement *resultElements
-; @param [x4] unsigned *resultCoeff,
-; @param ChemikazeError **error
-MfParser_consumeSymbolAndCoeff:
-    adrp x0, MfParser_consumeSymbolAndCoeff_name@page
-        add x0, x0, MfParser_consumeSymbolAndCoeff_name@pageoff
-        bl _printf
-    mov x5, 'H'
-    mov x6, 1
-    str x5, [x3]
-    str x6, [x4]
+; @param [x0->x20] const char *mf - start of the MF
+; @param [x1->x21] const char **i - exclusive
+; @param [x2->x22] const char *mfEnd, exclusive
+; @param [x3->x23] ChemElement *resultElements
+; @param [x4->x24] unsigned *resultCoeff
+; @param [x5] ChemikazeError **error TODO: implement error handling
+; @local [w10] - 2-byte symbol, the letters go in the opposite order: lC (for Cl), \0H for H\0
+; @local [x11] char *i - pointer to the current element
+; @local [w13] char *(i+1) - next element
+; @local [x25] size_t resultPos
+_MfParser_consumeSymbolAndCoeff:
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
+    stp x20, x21, [sp, -16]!
+        mov x20, x0 ; char *mf
+        mov x21, x1 ; char **i
+    stp x22, x23, [sp, -16]!
+        mov x22, x2 ; char *mfEnd
+        mov x23, x3 ; ChemElement *resultElements
+    stp x24, x25, [sp, -16]!
+        mov x24, x4 ; unsigned *resultCoeff
+        mov x25, x5 ; size_t resultPos
+
+    ldr x11, [x21] ; *i
+    sub x25, x11, x20 ; size_t resultPos = *i - mf
+    ldrb w10, [x11], 1 ; char symbol = ++(*i)
+    str x11, [x21] ; store the incremented *i to **i
+    ldrb w13, [x11], 1 ; load the next symbol
+    sub w14, w13, 'a' ; if (++(*i) < mfEnd && isSmallLetter(**i))
+        cmp w14, 26 ; isSmallLetter(*i)
+            cset w9, hi
+        cmp x11, x1 ; *i < mfEnd
+            cset w8, hi
+        orr w8, w8, w9 ; *i >= mfEnd || !isSmallLetter(w14)
+        cbnz w8, MfParser_consumeSymbolAndCoeff__skip2ndSymbol
+    bfi w10, w13, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
+    str x11, [x21] ; store the incremented *i to **i
+MfParser_consumeSymbolAndCoeff__skip2ndSymbol:
+    mov w0, w10 ;
+        bl _ptable_getElementBySymbol_short
+    strb w0, [x23, x25]
+    mov x0, x21
+        mov x1, x22
+        bl _MfParser_consumeCoeff
+    str w0, [x24, x25, lsl 2] ; resultCoeff[resultPos] = w0
+
+    ldp x24, x25, [sp], 16
+    ldp x22, x23, [sp], 16
+    ldp x20, x21, [sp], 16
+    ldp fp, lr, [sp], 16
     ret
 
 ; @param char **i symbol to start with

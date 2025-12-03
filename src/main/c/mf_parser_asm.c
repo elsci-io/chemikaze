@@ -77,7 +77,7 @@ void testConsumeSymbolAndCoeff() {
 	printf("\n");
 }
 void testReadSymbolsAndCoeffs() {
-	char *mf = "HO";
+	char *mf = "10[H2O3Cl]+";
 	unsigned len = strlen(mf);
 	ChemElement resultElements[len] = {};
 	unsigned resultCoeff[len] = {};

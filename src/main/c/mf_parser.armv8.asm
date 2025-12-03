@@ -2,6 +2,14 @@
 ; - If there's an "if" (cmp), the conditional jump has indentation
 ; - If we start preping params to call a function, assigning the 1st param doesn't have extra indentation, but
 ;   other lines related to the function call - those are indented
+; Registers conventions:
+; - x9 is "i" for loops, x15 is for the out condition:
+;     for (x9 = initial; x15; x9++)
+;   and if multiple conditions:
+;     for(x9 = initial; x15 or x14; x9++)
+; - x9 or x19 for the result in case we can't use x0
+; - x20, x21, x22, x23, x24 are for the params if we need caller-saved registers
+
 .global _isBigLetter
 .global _MfParser_new
 .global _MfParser_destroy
@@ -31,6 +39,9 @@
 
     ChemikazeError_EMPTY_MOL_MSG: .asciz "Empty Molecular Formula"
 
+    MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
+        .byte '(', ')', '+', '-', '.', '[', ']', ']'
+        .byte ']', ']', ']', ']', ']', ']', ']', ']'
     PTABLE_ELEMENTHASH_TO_ELEMENT: ; hash(char[2]) -> ChemicalElement, see periodic_table.c
         .byte 0,0,55,83,38,0,0,9,0,0,20,0,50,21,0,15,23,0,0,8,0,0,0,0,0,0,53,43,0,0,13,0
         .byte 74,0,0,69,0,0,27,84,0,0,0,0,0,0,0,64,0,0,42,0,0,0,0,0,0,16,0,0,0,0,0,0
@@ -146,50 +157,64 @@ _MfParser_parseSanitized__emptyMfError:
     mov x0, 0 ; return null
     b _MfParser_parseSanitized__out
 
-; @param [x0 -> x19] const char *mf - start of the MF
-; @param [x1 -> x20] const char *mfEnd (exclusive)
-; @param ChemElement *elements
-; @param unsigned *coeff,
-; @param ChemikazeError **error
-; @local [w22] character *i references
-; @local [x21] const *i = mf
+; @param [x0 -> x20] const char *mf - start of the MF
+; @param [x1 -> x21] const char *mfEnd (exclusive)
+; @param [x2 -> x22] ChemElement *elements
+; @param [x3 -> x23] unsigned *coeff,
+; @param [x4 -> x24] ChemikazeError **error
+; @local [w9] character *i references
+; @local [x19] const *i = mf
 _MfParser_readSymbolsAndCoeffs:
     stp fp, lr, [sp, -16]!
         mov fp, sp
-    stp x19, x20, [sp, -16]!
-        mov x19, x0 ; char *mf
-        mov x20, x1 ; char *mfEnd
-    stp x21, x22, [sp, -16]!
-        mov x21, x0 ; char *i = mf
-    stp x23, x24, [sp, -16]!
-        mov x23, x2 ; ChemElement *elements
-        mov x24, x3 ; unsigned *coeff
+    stp x20, x21, [sp, -16]!
+        mov x20, x0 ; char *mf
+        mov x21, x1 ; char *mfEnd
+    str x19, [sp, -16]!
+        mov x19, x0 ; char *i = mf
+    stp x22, x23, [sp, -16]!
+        mov x22, x2 ; ChemElement *elements
+        mov x23, x3 ; unsigned *coeff
     add sp, sp, -16 ;
+
+    adrp x6, MF_PUNCTUATION_SYMBOLS@page ; load punctuation into q1
+        add x6, x6, MF_PUNCTUATION_SYMBOLS@pageoff
+        ldr q1, [x6]
 MfParser_readSymbolsAndCoeffs__loop:
-    cmp x21, x20 ; if(i == mfEnd)
+    cmp x19, x21 ; if(i == mfEnd)
         b.eq MfParser_readSymbolsAndCoeffs__out ; break
-    ldrb w22, [x19] ; load character *i references
-        sub w9, w22, 'A' ; isBigLetter?
+    ldrb w9, [x19] ; load character *i references
+        sub w9, w9, 'A' ; isBigLetter?
             cmp w9, 26
                 b.lo MfParser_readSymbolsAndCoeffs__bigLetter
-        ; TODO: else if (isPunctuation(*i) || isDigit(*i)), and then the error case
-
+        sub w9, w9, '0'
+            cmp w9, 9 ; is digit
+            cset w7, ls
+            dup v0.16b, w9 ; compare the symbol with the punctuation => w6
+                cmeq v0.16b, v0.16b, v1.16b
+                umaxv b0, v0.16b
+                cset w6, ne
+            orr w7, w7, w6
+            cbnz w7, MfParser_readSymbolsAndCoeffs__digitOrPunctuation
     b MfParser_readSymbolsAndCoeffs__loop
 MfParser_readSymbolsAndCoeffs__bigLetter:
-    str x21, [sp]
-    mov x0, x19 ; char *mf
+    str x19, [sp]
+    mov x0, x20 ; char *mf
         mov x1, sp ; char **i
-        mov x2, x20 ; char *mfEnd
-        mov x3, x23 ; ChemElement *resultElements
-        mov x4, x24 ; unsigned *resultCoeff
+        mov x2, x21 ; char *mfEnd
+        mov x3, x22 ; ChemElement *resultElements
+        mov x4, x23 ; unsigned *resultCoeff
         bl _MfParser_consumeSymbolAndCoeff
-    ldr x21, [sp] ; load updates to *i that are made in consumeSymbolAndCoeff()
+    ldr x19, [sp] ; load updates to *i that are made in consumeSymbolAndCoeff()
+    b MfParser_readSymbolsAndCoeffs__loop
+MfParser_readSymbolsAndCoeffs__digitOrPunctuation:
+    add x19, x19, 1
     b MfParser_readSymbolsAndCoeffs__loop
 MfParser_readSymbolsAndCoeffs__out:
     add sp, sp, 16
-    ldp x23, x24, [sp], 16
-    ldp x21, x22, [sp], 16
-    ldp x19, x20, [sp], 16
+    ldp x22, x23, [sp], 16
+    ldr x19, [sp], 16
+    ldp x20, x21, [sp], 16
     ldp fp, lr, [sp], 16
     ret
 
@@ -278,6 +303,38 @@ _MfParser_consumeCoeff__loop:
     b _MfParser_consumeCoeff__loop
 _MfParser_consumeCoeff__ret:
     mov w0, w4
+    ret
+
+; Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.
+;
+; @param [x0] mf the start of the MF string
+; @param [x1] mfEnd the end of the MF string, exclusive
+; @param [x2] lo the position inside mf where we start applying {@code groupCoeff} and go right from there
+; @param [x3] currStackDepth how deep in () we are
+; @param [x4] resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
+; @param [x5] groupCoeff the coefficient to scale the whole group of symbols
+_MfParser_scaleForward:
+    cmp x5, 1
+        b.eq MfParser_scaleForward__ret
+    mov x9, x3 ; for (int depth = currStackDepth;). Incremented each time we run into '('. Once we reach a closing ')' (depth < currentStackDepth) or the end of MF - we're out.
+        cmp x9, x3
+        ccmp x2, x1, 0, lt
+        b.ge MfParser_scaleForward__ret
+    ldr x12, [x2] ; *lo
+    cmp x12, '('
+        cinc x2, x2, eq
+    cmp x12, ')'
+        csneg x2, x2, eq
+    cmp x12, '.' ; if(*lo == '.' && depth == currStackDepth)
+        ccmp x9, x3, 0, eq
+        b.eq MfParser_scaleForward__ret
+    ; Now resultCoeff[lo - mf] *= groupCoeff
+    sub x12, x2, x0 ; lo - mf
+        ldr x10, [x4, x12, lsl 2] ;
+        mul x10, x10, x5
+        str x10, [x4, x12, lsl 2]
+    add x2, x2, 1 ; lo++
+MfParser_scaleForward__ret:
     ret
 
 ; @param void **oldPointer

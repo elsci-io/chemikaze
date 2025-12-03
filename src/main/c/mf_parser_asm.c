@@ -38,6 +38,9 @@ extern int MfParser_consumeCoeff(const char **i, const char *mfEnd);
 extern int MfParser_consumeSymbolAndCoeff(
 	const char *mf, const char **i, const char *mfEnd/*exclusive*/,
 	ChemElement *resultElements, unsigned *resultCoeff);
+extern void MfParser_readSymbolsAndCoeffs(
+	const char *mf, const char *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff,
+	ChemikazeError **error);
 
 void testConsumeCoeff() {
 	const char *num = "H1O12Cl";
@@ -73,10 +76,35 @@ void testConsumeSymbolAndCoeff() {
 		printf("%d, ", resultCoeff[j]);
 	printf("\n");
 }
+void testReadSymbolsAndCoeffs() {
+	char *mf = "HO";
+	unsigned len = strlen(mf);
+	ChemElement resultElements[len] = {};
+	unsigned resultCoeff[len] = {};
+	ChemikazeError *error = NULL;
+	MfParser_readSymbolsAndCoeffs(mf, mf+len, resultElements, resultCoeff, &error);
+	printf("Elements: ");
+	for (unsigned j = 0; j < len; j++)
+		printf("%d, ", resultElements[j]);
+	printf("\nCoeffs:   ");
+	for (unsigned j = 0; j < len; j++)
+		printf("%d, ", resultCoeff[j]);
+	printf("\n");
+}
+void parseSanitized() {
+	char *mf = "HO";
+	ChemikazeError *error = NULL;
+	MfParser *parser = MfParser_new();
+	AtomCounts* counts = MfParser_parseSanitized(parser, mf, mf, &error);
+	if (!log_if_error(error, counts)) {
+		printf("Symbols: %p\n", counts);
+	}
+}
 
 int main() {
 	// testConsumeCoeff();
-	testConsumeSymbolAndCoeff();
+	// testConsumeSymbolAndCoeff();
+	testReadSymbolsAndCoeffs();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

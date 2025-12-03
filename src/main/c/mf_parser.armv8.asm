@@ -9,6 +9,7 @@
 .global _ptable_getElementBySymbol_short
 .global _MfParser_consumeCoeff
 .global _MfParser_consumeSymbolAndCoeff
+.global _MfParser_readSymbolsAndCoeffs
 
 .data
     ; struct MfParser field offsets and so on:
@@ -50,7 +51,6 @@
     .equ PTABLE_ELEMENTHASH_TO_ELEMENT_LEN, 512
     .equ PTABLE_ELEMENTHASH_TO_ELEMENT_MASK, 511
 
-    MfParser_readSymbolsAndCoeffs__bigLetter_name: .asciz "MfParser_readSymbolsAndCoeffs__bigLetter\n"
     MfParser_consumeSymbolAndCoeff_name: .asciz "MfParser_consumeSymbolAndCoeff\n"
 .text
 
@@ -132,7 +132,7 @@ _MfParser_parseSanitized:
         b.hs _MfParser_parseSanitized__emptyMfError
     mov x0, x1
         mov x1, x2
-        bl MfParser_readSymbolsAndCoeffs
+        bl _MfParser_readSymbolsAndCoeffs
 _MfParser_parseSanitized__out:
     ldp x19, x20, [sp], 16
     ldp fp, lr, [sp], 16
@@ -147,42 +147,54 @@ _MfParser_parseSanitized__emptyMfError:
     b _MfParser_parseSanitized__out
 
 ; @param [x0 -> x19] const char *mf - start of the MF
-; @param [x1 -> x20] const char *mfEnd - exclusive
+; @param [x1 -> x20] const char *mfEnd (exclusive)
 ; @param ChemElement *elements
 ; @param unsigned *coeff,
 ; @param ChemikazeError **error
-MfParser_readSymbolsAndCoeffs:
+; @local [w22] character *i references
+; @local [x21] const *i = mf
+_MfParser_readSymbolsAndCoeffs:
     stp fp, lr, [sp, -16]!
         mov fp, sp
     stp x19, x20, [sp, -16]!
-        mov x19, x0
-        mov x20, x1
+        mov x19, x0 ; char *mf
+        mov x20, x1 ; char *mfEnd
     stp x21, x22, [sp, -16]!
+        mov x21, x0 ; char *i = mf
+    stp x23, x24, [sp, -16]!
+        mov x23, x2 ; ChemElement *elements
+        mov x24, x3 ; unsigned *coeff
+    add sp, sp, -16 ;
 MfParser_readSymbolsAndCoeffs__loop:
-    cmp x19, x20
-    b.eq MfParser_readSymbolsAndCoeffs__out
-    ldrb w21, [x19], 1 ; isBigLetter?
-        sub w22, w21, 'A'
-            cmp w22, 26
+    cmp x21, x20 ; if(i == mfEnd)
+        b.eq MfParser_readSymbolsAndCoeffs__out ; break
+    ldrb w22, [x19] ; load character *i references
+        sub w9, w22, 'A' ; isBigLetter?
+            cmp w9, 26
                 b.lo MfParser_readSymbolsAndCoeffs__bigLetter
         ; TODO: else if (isPunctuation(*i) || isDigit(*i)), and then the error case
-    add x19, x19, 1
+
     b MfParser_readSymbolsAndCoeffs__loop
 MfParser_readSymbolsAndCoeffs__bigLetter:
-    adrp x0, MfParser_readSymbolsAndCoeffs__bigLetter_name@page
-        add x0, x0, MfParser_readSymbolsAndCoeffs__bigLetter_name@pageoff
-        bl _printf
-    bl _MfParser_consumeSymbolAndCoeff
-    mov x0, 16
+    str x21, [sp]
+    mov x0, x19 ; char *mf
+        mov x1, sp ; char **i
+        mov x2, x20 ; char *mfEnd
+        mov x3, x23 ; ChemElement *resultElements
+        mov x4, x24 ; unsigned *resultCoeff
+        bl _MfParser_consumeSymbolAndCoeff
+    ldr x21, [sp] ; load updates to *i that are made in consumeSymbolAndCoeff()
     b MfParser_readSymbolsAndCoeffs__loop
 MfParser_readSymbolsAndCoeffs__out:
+    add sp, sp, 16
+    ldp x23, x24, [sp], 16
     ldp x21, x22, [sp], 16
     ldp x19, x20, [sp], 16
     ldp fp, lr, [sp], 16
     ret
 
-; @param [x0->x20] const char *mf - start of the MF
-; @param [x1->x21] const char **i - exclusive
+; @param [x0->x20] const char *mf: start of the MF
+; @param [x1->x21] const char **i: curr position within MF
 ; @param [x2->x22] const char *mfEnd, exclusive
 ; @param [x3->x23] ChemElement *resultElements
 ; @param [x4->x24] unsigned *resultCoeff
@@ -202,7 +214,6 @@ _MfParser_consumeSymbolAndCoeff:
         mov x23, x3 ; ChemElement *resultElements
     stp x24, x25, [sp, -16]!
         mov x24, x4 ; unsigned *resultCoeff
-        mov x25, x5 ; size_t resultPos
 
     ldr x11, [x21] ; *i
     sub x25, x11, x20 ; size_t resultPos = *i - mf

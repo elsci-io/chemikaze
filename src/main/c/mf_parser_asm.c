@@ -41,7 +41,36 @@ extern int MfParser_consumeSymbolAndCoeff(
 extern void MfParser_readSymbolsAndCoeffs(
 	const char *mf, const char *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff,
 	ChemikazeError **error);
+extern void MfParser_scaleForward(const char *mf, const char *mfEnd, const char *lo,
+				  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff);
 
+void printResultCoeffs(size_t len, unsigned resultCoeff[]) {
+	printf("Result coeff: ");
+	for (unsigned i = 0; i < len; i++)
+		printf("%d ", resultCoeff[i]);
+	printf("\n");
+}
+
+void testScaleForward() {
+	const char *mf = "(HCl4)4O";
+	size_t len = strlen(mf);
+	const char *mfEnd = mf + len+1;
+	unsigned resultCoeff[10];
+	for (unsigned i = 0; i < len; i++)
+		resultCoeff[i] = 1;
+
+	MfParser_scaleForward(mf, mfEnd+1, mf, 0, resultCoeff, 1);
+	printResultCoeffs(len, resultCoeff);
+
+	MfParser_scaleForward(mf, mfEnd+1, mf, 0, resultCoeff, 5);
+	printResultCoeffs(len, resultCoeff);
+
+	MfParser_scaleForward(mf, mfEnd+1, mf+1, 0, resultCoeff, 5);
+	printResultCoeffs(len, resultCoeff);
+
+	MfParser_scaleForward(mf, mfEnd+1, mf+1, 1, resultCoeff, 5);
+	printResultCoeffs(len, resultCoeff);
+}
 void testConsumeCoeff() {
 	const char *num = "H1O12Cl";
 	const char *start = num;
@@ -104,7 +133,8 @@ void parseSanitized() {
 int main() {
 	// testConsumeCoeff();
 	// testConsumeSymbolAndCoeff();
-	testReadSymbolsAndCoeffs();
+	// testReadSymbolsAndCoeffs();
+	testScaleForward();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

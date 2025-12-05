@@ -142,12 +142,14 @@ void scaleForward(const char *mf, const char *mfEnd, const char *lo,
 				  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff) {
 	if (groupCoeff == 1)
 		return;// usually the case, as people rarely put coefficients in front of MF
+	// Might be faster to increment resultCoeff within the loop. The initial val:
+	// resultCoeff = resultCoeff + (lo - mf);
 	for (int depth = currStackDepth; lo < mfEnd && depth >= currStackDepth; lo++) {
 		if     (*lo == '(') depth++;
 		else if(*lo == ')') depth--;
 		else if(*lo == '.' && depth == currStackDepth)
 			break;
-		resultCoeff[lo - mf] *= groupCoeff;
+		resultCoeff[lo - mf] *= groupCoeff;// will multiply parentheses too, but those have 0 coeffs
 	}
 }
 void scaleBackward(const char *mf, const char *hi/*inclusive*/, int currStackDepth, unsigned *resultCoeff, int groupCoeff) {

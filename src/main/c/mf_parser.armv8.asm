@@ -18,6 +18,7 @@
 .global _MfParser_consumeCoeff
 .global _MfParser_consumeSymbolAndCoeff
 .global _MfParser_readSymbolsAndCoeffs
+.global _MfParser_scaleForward
 
 .data
     ; struct MfParser field offsets and so on:
@@ -312,28 +313,34 @@ _MfParser_consumeCoeff__ret:
 ; @param [x2] lo the position inside mf where we start applying {@code groupCoeff} and go right from there
 ; @param [x3] currStackDepth how deep in () we are
 ; @param [x4] resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
-; @param [x5] groupCoeff the coefficient to scale the whole group of symbols
+; @param [w5] groupCoeff the coefficient to scale the whole group of symbols
 _MfParser_scaleForward:
     cmp x5, 1
         b.eq MfParser_scaleForward__ret
     mov x9, x3 ; for (int depth = currStackDepth;). Incremented each time we run into '('. Once we reach a closing ')' (depth < currentStackDepth) or the end of MF - we're out.
+MfParser_scaleForward__loop:
+    cmp x2, x1
+        cset x15, lo
         cmp x9, x3
-        ccmp x2, x1, 0, lt
-        b.ge MfParser_scaleForward__ret
-    ldr x12, [x2] ; *lo
-    cmp x12, '('
-        cinc x2, x2, eq
-    cmp x12, ')'
-        csneg x2, x2, eq
-    cmp x12, '.' ; if(*lo == '.' && depth == currStackDepth)
+        cset x14, ge
+        and x14, x14, x15
+        cbz x14, MfParser_scaleForward__ret
+    ldrb w12, [x2] ; *lo
+    cmp w12, '('
+        cinc x9, x9, eq
+    cmp w12, ')'
+        sub x14, x9, 1 ; precomputed decremented x12 in x14
+        csel x9, x14, x9, eq
+    cmp w12, '.' ; if(*lo == '.' && depth == currStackDepth)
         ccmp x9, x3, 0, eq
         b.eq MfParser_scaleForward__ret
     ; Now resultCoeff[lo - mf] *= groupCoeff
     sub x12, x2, x0 ; lo - mf
-        ldr x10, [x4, x12, lsl 2] ;
-        mul x10, x10, x5
-        str x10, [x4, x12, lsl 2]
+        ldr w10, [x4, x12, lsl 2] ;
+        mul w10, w10, w5
+        str w10, [x4, x12, lsl 2]
     add x2, x2, 1 ; lo++
+    b MfParser_scaleForward__loop
 MfParser_scaleForward__ret:
     ret
 

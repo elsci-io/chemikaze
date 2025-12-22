@@ -432,24 +432,3 @@ _ptable_getElementBySymbol_short:
     add x7, x7, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
     ldrb w0, [x7, x6]
     ret
-
-; @param unsigned c
-_isNumeric:
-    sub w0, w0, '0' ;  c - '0'
-    cmp w0, 10
-    cset w0, lo ; c < 10
-    ret
-
-; @param unsigned c
-_isBigLetter:
-    sub w0, w0, 'A'
-    cmp w0, 26
-    cset w0, lo
-    ret
-
-; @param unsigned c
-_isSmallLetter:
-    sub w0, w0, 'a'
-    cmp w0, 26
-    cset w0, lo
-    ret

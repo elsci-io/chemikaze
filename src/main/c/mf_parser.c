@@ -152,6 +152,16 @@ void scaleForward(const char *mf, const char *mfEnd, const char *lo,
 		resultCoeff[lo - mf] *= groupCoeff;// will multiply parentheses too, but those have 0 coeffs
 	}
 }
+
+/**
+ * Scales whatever is in the parentheses like {@code (H2O)2}.
+ *
+ * @param mf the start of the MF string
+ * @param hi current position (inclusive) of the closing parenthesis - to go back and find where it starts
+ * @param currStackDepth how deep in () we are
+ * @param resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
+ * @param groupCoeff the coefficient to scale the whole group of symbols
+ */
 void scaleBackward(const char *mf, const char *hi/*inclusive*/, int currStackDepth, unsigned *resultCoeff, int groupCoeff) {
 	int depth = currStackDepth;
 	for (; hi >= mf && depth <= currStackDepth; hi--) {

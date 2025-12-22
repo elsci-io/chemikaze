@@ -19,6 +19,7 @@
 .global _MfParser_consumeSymbolAndCoeff
 .global _MfParser_readSymbolsAndCoeffs
 .global _MfParser_scaleForward
+.global _MfParser_scaleBackward
 
 .data
     ; struct MfParser field offsets and so on:
@@ -315,9 +316,12 @@ _MfParser_consumeCoeff__ret:
 ; @param [x4] resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
 ; @param [w5] groupCoeff the coefficient to scale the whole group of symbols
 _MfParser_scaleForward:
-    cmp x5, 1
+    cmp w5, 1
         b.eq MfParser_scaleForward__ret
-    mov x9, x3 ; for (int depth = currStackDepth;). Incremented each time we run into '('. Once we reach a closing ')' (depth < currentStackDepth) or the end of MF - we're out.
+    ; for (int depth = currStackDepth):
+    ;  * Incremented each time we run into '('.
+    ;  * Once we reach a closing ')' (depth < currentStackDepth) or the end of MF - we're out.
+    mov x9, x3
 MfParser_scaleForward__loop:
     cmp x2, x1
         cset x15, lo
@@ -344,6 +348,37 @@ MfParser_scaleForward__loop:
 MfParser_scaleForward__ret:
     ret
 
+; Scales whatever is in the parentheses like {@code (H2O)2}.
+;
+; @param [x0] mf the start pointer to the MF string
+; @param [x1] current position (inclusive) of the closing parenthesis - to go back and find where it starts
+; @param [w2] currStackDepth how deep in () we are
+; @param [x3] resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
+; @param [w4] groupCoeff the coefficient to scale the whole group of symbols
+_MfParser_scaleBackward:
+    mov w14, w2 ; depth = currStackDepth
+MfParser_scaleBackward__loop:
+    cmp x1, x0
+        cset x13, lo
+        cmp w2, w14
+        cset x12, gt
+        orr x13, x12, x13
+        cbnz x13, MfParser_scaleBackward__ret
+    ldrb w13, [x1]
+    cmp w13, '('
+        cinc w14, w14, eq
+    sub w12, w14, 1 ; precomputed decremented w14 in w12
+        cmp w13, ')'
+        csel w14, w12, w14, eq
+    ; resultCoeff[hi - mf] *= groupCoeff:
+    sub x11, x1, x0 ; hi - mf
+        ldr w10, [x3, x11, lsl 2]
+        mul w10, w10, w4
+        str w10, [x3, x11, lsl 2]
+    sub x1, x1, 1 ; hi--
+    b MfParser_scaleBackward__loop
+MfParser_scaleBackward__ret:
+    ret
 ; @param void **oldPointer
 ; @param size_t newLen
 ; @return ChemikazeError* or nullptr

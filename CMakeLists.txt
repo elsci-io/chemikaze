@@ -6,6 +6,14 @@ set(CMAKE_C_FLAGS "-Wall -Werror -Wextra -O3")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -ggdb")
 set(CMAKE_C_STANDARD 23)
 
+# brew install llvm
+# brew info llvm - for the path for clang
+include(CheckCCompilerFlag)
+check_c_compiler_flag("-std=c23" HAS_C23)
+if(NOT HAS_C23)
+    message(FATAL_ERROR "Compiler does not support C23")
+endif()
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target/cmake/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target/cmake/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target/cmake/bin)

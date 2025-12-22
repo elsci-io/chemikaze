@@ -4,8 +4,14 @@
 #include "error.h"
 #include "mf_parser.h"
 #include "periodic_table.h"
-// This implementation uses a hand written Assembly MfParser. It's written only for Mac ARM. To compile it:
+// This implementation uses a handwritten Assembly MfParser. It's written only for Mac ARM, and there's no CMake config
+// for it.
+//
+// To compile:
 //  cc -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
+//
+// Or if the newer version of Clang is installed with brew:
+//  /opt/homebrew/opt/llvm/bin/clang -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
 
 int isNumeric(unsigned char c);
 int isBigLetter(unsigned char c);
@@ -42,13 +48,28 @@ extern void MfParser_readSymbolsAndCoeffs(
 	const char *mf, const char *mfEnd/*exclusive*/, ChemElement *elements, unsigned *coeff,
 	ChemikazeError **error);
 extern void MfParser_scaleForward(const char *mf, const char *mfEnd, const char *lo,
-				  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff);
+								  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff);
+void MfParser_scaleBackward(const char *mf, const char *hi/*inclusive*/,
+						    int currStackDepth, unsigned *resultCoeff, int groupCoeff);
 
 void printResultCoeffs(size_t len, unsigned resultCoeff[]) {
-	printf("Result coeff: ");
+	printf("  Result coeff: ");
 	for (unsigned i = 0; i < len; i++)
 		printf("%d ", resultCoeff[i]);
 	printf("\n");
+}
+
+void testScaleBackward() {
+	printf("Testing scaleBackward():\n");
+	const char *mf = "(HCl4)4";
+	unsigned resultCoeff[10] = {0, 1, 4, 0, 0, 0};
+	size_t len = strlen(mf);
+	const char *mfEnd = mf + len + 1;
+	MfParser_scaleBackward(mf, mfEnd-3, 0, resultCoeff, 1); // 0 1 4 0 0 0
+	printResultCoeffs(len, resultCoeff);
+
+	MfParser_scaleBackward(mf, mfEnd-4, 0, resultCoeff, 4); // 0 4 16 0 0 0
+	printResultCoeffs(len, resultCoeff);
 }
 
 void testScaleForward() {
@@ -135,6 +156,7 @@ int main() {
 	// testConsumeSymbolAndCoeff();
 	// testReadSymbolsAndCoeffs();
 	testScaleForward();
+	testScaleBackward();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

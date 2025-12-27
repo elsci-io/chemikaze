@@ -51,12 +51,24 @@ extern void MfParser_scaleForward(const char *mf, const char *mfEnd, const char 
 								  int currStackDepth, unsigned *resultCoeff, unsigned groupCoeff);
 void MfParser_scaleBackward(const char *mf, const char *hi/*inclusive*/,
 						    int currStackDepth, unsigned *resultCoeff, int groupCoeff);
+void MfParser_findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs);
 
 void printResultCoeffs(size_t len, unsigned resultCoeff[]) {
 	printf("  Result coeff: ");
 	for (unsigned i = 0; i < len; i++)
 		printf("%d ", resultCoeff[i]);
 	printf("\n");
+}
+
+void testFindAndApplyGroupCoeffs() {
+	printf("Testing findAndApplyGroupCoeffs():\n");
+	const char *mf = "4H2O.2(HCl4)4";
+	unsigned resultCoeff[13] = {0, 2, 0, 1, 0, 0, 0, 1, 4, 0, 0, 0, 0};
+	size_t len = strlen(mf);
+	const char *mfEnd = mf + len + 1;
+
+	MfParser_findAndApplyGroupCoeffs(mf, mfEnd, resultCoeff);
+	printResultCoeffs(len, resultCoeff); // 0 8 0 4 0 0 8 32 0 0 0 0
 }
 
 void testScaleBackward() {
@@ -155,8 +167,9 @@ int main() {
 	// testConsumeCoeff();
 	// testConsumeSymbolAndCoeff();
 	// testReadSymbolsAndCoeffs();
-	testScaleForward();
-	testScaleBackward();
+	// testScaleForward();
+	// testScaleBackward();
+	testFindAndApplyGroupCoeffs();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

@@ -20,6 +20,7 @@
 .global _MfParser_readSymbolsAndCoeffs
 .global _MfParser_scaleForward
 .global _MfParser_scaleBackward
+.global _MfParser_findAndApplyGroupCoeffs
 
 .data
     ; struct MfParser field offsets and so on:
@@ -307,6 +308,92 @@ _MfParser_consumeCoeff__ret:
     mov w0, w4
     ret
 
+; const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs
+; @param [x0 ->x20] mf the start of the MF string
+; @param [x1 ->x21] mfEnd the end of the MF string, exclusive
+; @param [x2 ->x22] resultCoeffs which coefficients to scale (only a specific region of MF will be scaled)
+; @local [x24] - currStackDepth
+; @local [x25 -> sp] - i, that starts with x0 and ends with x1
+_MfParser_findAndApplyGroupCoeffs:
+    sub sp, sp, 64
+        stp fp, lr, [sp, 48]
+        mov fp, sp
+        stp x20, x21, [sp, 32]
+        stp x22, x24, [sp, 16]
+        str x25, [sp]
+    mov x20, x0 ; mf
+        mov x21, x1 ; mfEnd
+        mov x22, x2 ; resultCoeffs
+        mov x24, 0  ; currStackDepth
+    mov x25, x0 ; i
+    MfParser_findAndApplyGroupCoeffs__loop:
+        cmp x25, x21
+            b.hs MfParser_findAndApplyGroupCoeffs__loopout
+        str x25, [sp]
+        mov x0, sp
+            mov x1, x21
+            bl _MfParser_consumeCoeff
+        ldr x25, [sp] ; the updated i value from consumeCoeff()
+        mov x5, x0 ; coeff
+            mov x0, x20 ; mf
+            mov x1, x21 ; mfEnd
+            mov x2, x25 ; lo
+            mov x3, x24 ; currStackDepth
+            mov x4, x22 ; resultCoeffs
+            bl _MfParser_scaleForward
+        cmp x25, x1
+            b.hs MfParser_findAndApplyGroupCoeffs__loopout
+        MfParser_findAndApplyGroupCoeffs__whileAlphanumeric: ; // skip all letters, numbers
+            ldrb w0, [x25]
+            sub x1, x0, 'A' ; is big letter
+            sub x2, x0, 'a' ; is small letter
+            sub x3, x0, '0' ; is digit
+            cmp x1, 26
+                cset x1, lo
+            cmp x2, 26
+                cset x2, lo
+            cmp x3, 10
+                cset x3, lo
+            orr x4, x1, x2
+                orr x5, x4, x3
+                cbz x5, MfParser_findAndApplyGroupCoeffs__loop__isOpeningBracket
+            cmp x25, x21 ; if i >= mfEnd
+                b.hs MfParser_findAndApplyGroupCoeffs__loopout
+            add x25, x25, 1
+            b MfParser_findAndApplyGroupCoeffs__whileAlphanumeric
+        MfParser_findAndApplyGroupCoeffs__loop__isOpeningBracket:
+            cmp x0, '(' ; loaded from x25 in the 1st line of the while loop
+                b.ne MfParser_findAndApplyGroupCoeffs__loop__isClosingBracket
+                add x24, x24, 1 ; currStackDepth++
+                b MfParser_findAndApplyGroupCoeffs__loop_suffix
+        MfParser_findAndApplyGroupCoeffs__loop__isClosingBracket:
+            cmp x0, ')'
+                b.ne MfParser_findAndApplyGroupCoeffs__loop_suffix
+                sub x26, x25, 1 ; chunkEnd for scaleBackward()
+                add x25, x25, 1 ; i++
+                str x25, [sp] ; consumeCoeff(**i, mfEnd)
+                    mov x0, sp
+                    mov x1, x21
+                    bl _MfParser_consumeCoeff
+                    ldr x25, [sp]
+                mov x4, x0 ; groupCoeff from previous consumeCoeff()
+                    mov x0, x20 ; mf
+                    mov x1, x26 ; chunkEnd aka hi
+                    mov x2, x24 ; currStackDepth
+                    mov x3, x22
+                    bl _MfParser_scaleBackward
+                sub x24, x24, 1 ; currStackDepth--
+                b MfParser_findAndApplyGroupCoeffs__loop
+        MfParser_findAndApplyGroupCoeffs__loop_suffix:
+            add x25, x25, 1
+            b MfParser_findAndApplyGroupCoeffs__loop
+    MfParser_findAndApplyGroupCoeffs__loopout:
+    ldp fp, lr, [sp, 48]
+        ldp x20, x21, [sp, 32]
+        ldp x22, x24, [sp, 16]
+        ldr x25, [sp]
+        add sp, sp, 64
+    ret
 ; Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.
 ;
 ; @param [x0] mf the start of the MF string
@@ -356,11 +443,13 @@ MfParser_scaleForward__ret:
 ; @param [x3] resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
 ; @param [w4] groupCoeff the coefficient to scale the whole group of symbols
 _MfParser_scaleBackward:
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
     mov w14, w2 ; depth = currStackDepth
 MfParser_scaleBackward__loop:
     cmp x1, x0
         cset x13, lo
-        cmp w2, w14
+        cmp w14, w2
         cset x12, gt
         orr x13, x12, x13
         cbnz x13, MfParser_scaleBackward__ret
@@ -378,6 +467,7 @@ MfParser_scaleBackward__loop:
     sub x1, x1, 1 ; hi--
     b MfParser_scaleBackward__loop
 MfParser_scaleBackward__ret:
+    ldp fp, lr, [sp], 16
     ret
 ; @param void **oldPointer
 ; @param size_t newLen

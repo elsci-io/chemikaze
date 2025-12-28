@@ -54,10 +54,33 @@ void MfParser_scaleBackward(const char *mf, const char *hi/*inclusive*/,
 void MfParser_findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs);
 
 void printResultCoeffs(size_t len, unsigned resultCoeff[]) {
-	printf("  Result coeff: ");
+	printf("  Result coeffs:   ");
 	for (unsigned i = 0; i < len; i++)
 		printf("%d ", resultCoeff[i]);
 	printf("\n");
+}
+void printResultElements(size_t len, ChemElement resultElements[]) {
+	printf("  Result elements: ");
+	for (unsigned i = 0; i < len; i++)
+		printf("%d ", resultElements[i]);
+	printf("\n");
+}
+
+void testParseSanitized() {
+	printf("Testing parseSanitized():\n");
+	const char *mf = "4H2O.2(HCl4)4";
+	size_t len = strlen(mf);
+	const char *mfEnd = mf + len + 1;
+
+	ChemikazeError *error = NULL;
+	MfParser *parser = MfParser_new();
+	AtomCounts* counts = MfParser_parseSanitized(parser, mf, mfEnd, &error);
+	printResultCoeffs(len, parser->coeffs);
+	printResultElements(len, parser->elements);
+
+	// if (!log_if_error(error, counts))
+	// 	printf("Symbols: %p\n", counts);
+
 }
 
 void testFindAndApplyGroupCoeffs() {
@@ -153,15 +176,6 @@ void testReadSymbolsAndCoeffs() {
 		printf("%d, ", resultCoeff[j]);
 	printf("\n");
 }
-void parseSanitized() {
-	char *mf = "HO";
-	ChemikazeError *error = NULL;
-	MfParser *parser = MfParser_new();
-	AtomCounts* counts = MfParser_parseSanitized(parser, mf, mf, &error);
-	if (!log_if_error(error, counts)) {
-		printf("Symbols: %p\n", counts);
-	}
-}
 
 int main() {
 	// testConsumeCoeff();
@@ -169,7 +183,8 @@ int main() {
 	// testReadSymbolsAndCoeffs();
 	// testScaleForward();
 	// testScaleBackward();
-	testFindAndApplyGroupCoeffs();
+	// testFindAndApplyGroupCoeffs();
+	testParseSanitized();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

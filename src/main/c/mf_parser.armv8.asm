@@ -130,33 +130,46 @@ _MfParser_destroy:
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
-; @param MfParser *parser
-; @param const char *mf start of the molecular formula
-; @param const char *mfEnd end of the formula, exclusive
-; @param ChemikazeError** to fill if error occurs
+; @param [x0->x20] MfParser *parser
+; @param [x1->x21] const char *mf start of the molecular formula
+; @param [x2->x22] const char *mfEnd end of the formula, exclusive
+; @param [x3->x23] ChemikazeError** to fill if error occurs
 ; @return x0 AtomCounts* or null. If null then check the error param.
 ;
 _MfParser_parseSanitized:
-    stp fp, lr, [sp, -16]!
+    sub sp, sp, 48
+    stp fp, lr, [sp, 32]
         mov fp, sp
-    stp x19, x20, [sp, -16]!
-        mov x19, x3 ; ChemikazeError* to be optionally filled
-        mov x20, x4
+        stp x20, x21, [sp, 16]
+        stp x22, x23, [sp]
+        mov x20, x0 ; MfParser*
+        mov x21, x1 ; char *mf
+        mov x22, x2 ; char *mfEnd
+        mov x23, x3  ; ChemikazeError* to be optionally filled
     cmp x1, x2
         b.hs _MfParser_parseSanitized__emptyMfError
-    mov x0, x1
-        mov x1, x2
+    mov x0, x21
+        mov x1, x22
+        ldr x2, [x20, MfParser_elements]
+        ldr x3, [x20, MfParser_coeffs]
+        mov x4, x23
         bl _MfParser_readSymbolsAndCoeffs
+    mov x0, x21
+        mov x1, x22
+        ldr x2, [x20, MfParser_coeffs]
+        bl _MfParser_findAndApplyGroupCoeffs
 _MfParser_parseSanitized__out:
-    ldp x19, x20, [sp], 16
-    ldp fp, lr, [sp], 16
+    ldp fp, lr, [sp, 32]
+    ldp x20, x21, [sp, 16]
+    ldp x22, x23, [sp]
+    add sp, sp, 48
     ret
 _MfParser_parseSanitized__emptyMfError:
     mov x0, ChemikazeErrorCode_PARSE
         adrp x1, ChemikazeError_EMPTY_MOL_MSG@page
         add x1, x1, ChemikazeError_EMPTY_MOL_MSG@pageoff
         bl _ChemikazeError_new
-    str x0, [x19] ; return ChemikazeError*
+    str x0, [x23] ; return ChemikazeError*
     mov x0, 0 ; return null
     b _MfParser_parseSanitized__out
 

@@ -1,3 +1,5 @@
+#include <stdbool.h>
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -52,7 +54,24 @@ extern void MfParser_scaleForward(const char *mf, const char *mfEnd, const char 
 void MfParser_scaleBackward(const char *mf, const char *hi/*inclusive*/,
 						    int currStackDepth, unsigned *resultCoeff, int groupCoeff);
 void MfParser_findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs);
+AtomCounts* MfParser_combineIntoAtomCounts(const ChemElement *elements, const unsigned *coeffs, size_t len, AtomCounts *result);
 
+void printUnsigned(const unsigned resultCoeff[], size_t len) {
+	for (unsigned i = 0; i < len; i++)
+		printf("%d ", resultCoeff[i]);
+}
+void assertEqualUnsigned(const unsigned expected[], const unsigned actual[], size_t len) {
+	for (size_t i = 0; i < len; i++) {
+		if (expected[i] != actual[i]) {
+			printf(" \033[31m[ERROR] Assertion failed: \n Expected: ");
+			printUnsigned(expected, len);
+			printf("\n Actual:   ");
+			printUnsigned(actual, len);
+			printf("\033[0m\n");
+			assert(false);
+		}
+	}
+}
 void printResultCoeffs(size_t len, unsigned resultCoeff[]) {
 	printf("  Result coeffs:   ");
 	for (unsigned i = 0; i < len; i++)
@@ -65,7 +84,15 @@ void printResultElements(size_t len, ChemElement resultElements[]) {
 		printf("%d ", resultElements[i]);
 	printf("\n");
 }
-
+void testCombineIntoAtomCounts() {
+	printf("Testing combineIntoAtomCounts():\n");
+	ChemElement elements[6] = {0, 1, 2, 3, 0, 1};
+	unsigned      coeffs[6] = {2, 0, 1, 2, 1, 0};
+	AtomCounts *counts = AtomCounts_new();
+	MfParser_combineIntoAtomCounts(elements, coeffs, 6, counts);
+	assertEqualUnsigned((unsigned[EARTH_ELEMENT_CNT]){3, 0, 1, 2}, counts->counts, EARTH_ELEMENT_CNT);
+	// AtomCounts_free(counts);
+}
 void testParseSanitized() {
 	printf("Testing parseSanitized():\n");
 	const char *mf = "4H2O.2(HCl4)4";
@@ -184,7 +211,8 @@ int main() {
 	// testScaleForward();
 	// testScaleBackward();
 	// testFindAndApplyGroupCoeffs();
-	testParseSanitized();
+	// testParseSanitized();
+	testCombineIntoAtomCounts();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

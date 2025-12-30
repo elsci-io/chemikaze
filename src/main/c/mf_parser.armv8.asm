@@ -1,3 +1,6 @@
+; Useful links:
+;  https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
+;  https://github.com/ARM-software/abi-aa
 ; Conventions:
 ; - If there's an "if" (cmp), the conditional jump has indentation
 ; - If we start preping params to call a function, assigning the 1st param doesn't have extra indentation, but
@@ -21,8 +24,14 @@
 .global _MfParser_scaleForward
 .global _MfParser_scaleBackward
 .global _MfParser_findAndApplyGroupCoeffs
+.global _MfParser_combineIntoAtomCounts
+.global _AtomCounts_new
 
 .data
+    ; For use in ccmp where we have to set NZCV flags directly:
+    .equ NZCV_EQ, 0b0100
+    .equ NZCV_HI, 0b0010
+
     ; struct MfParser field offsets and so on:
     .equ MfParser_elements, 0
     .equ MfParser_coeffs, 8
@@ -39,6 +48,12 @@
     .equ ChemikazeError_msg, 0 ; char *msg
     .equ ChemikazeError_code, 8 ; ChemikazeErrorCode
     .equ ChemikazeError_SIZE, 16 ; char *msg
+
+    ; struct AtomCounts
+    .equ AtomCounts_counts, 0 ; unsigned *counts;
+    .equ AtomCounts_SIZE, 8
+    .equ AtomCounts_TOTAL_SIZE, 348 ; array of earth elements (85 * 4) + ref to the array (8)
+    .equ AtomCounts_EARTH_ELEMENT_CNT, 85
 
     ChemikazeError_EMPTY_MOL_MSG: .asciz "Empty Molecular Formula"
 
@@ -64,8 +79,6 @@
         .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,60,0,0,0,0,0,0,0,0,0,0,0,81,0,0,0,0,0,0
     .equ PTABLE_ELEMENTHASH_TO_ELEMENT_LEN, 512
     .equ PTABLE_ELEMENTHASH_TO_ELEMENT_MASK, 511
-
-    MfParser_consumeSymbolAndCoeff_name: .asciz "MfParser_consumeSymbolAndCoeff\n"
 .text
 
 _MfParser_new:
@@ -172,6 +185,35 @@ _MfParser_parseSanitized__emptyMfError:
     str x0, [x23] ; return ChemikazeError*
     mov x0, 0 ; return null
     b _MfParser_parseSanitized__out
+
+; @param [x0] const ChemElement *elements
+; @param [x1] const unsigned *coeffs
+; @param [w2] size_t len, is used to decrement until it reaches -1 which would signify the look end
+; @param [x3] AtomCounts *result
+; @return AtomCounts *result
+; @local [w15] result->counts
+; @local [w14] coeffs[i]
+; @local [w13] elements[i]
+_MfParser_combineIntoAtomCounts:
+    cmp x2, 0
+        b.eq MfParser_combineIntoAtomCounts__ret
+    sub x2, x2, 1
+    add x15, x3, AtomCounts_counts ; (unsigned*)result->counts
+    ldr x15, [x15] ; actual array result->counts
+    MfParser_combineIntoAtomCounts__loop:
+        ldr w14, [x1, x2, lsl 2] ; coeffs[i]
+            cbz w14, MfParser_combineIntoAtomCounts__loop_continue
+        ldrb w13, [x0, x2] ; elements[i]
+        ldr w12, [x15, x13, lsl 2]; result->counts[elements[i]]
+            add w12, w12, w14 ; result->counts[elements[i]] + coeffs[i]
+            str w12, [x15, x13, lsl 2]; result->counts[elements[i]] += coeffs[i]
+        MfParser_combineIntoAtomCounts__loop_continue:
+        subs x2, x2, 1
+        b.lo MfParser_combineIntoAtomCounts__ret ; when we reached -1, it means we iterated over every element
+        b MfParser_combineIntoAtomCounts__loop
+MfParser_combineIntoAtomCounts__ret:
+    mov x0, x3
+    ret
 
 ; @param [x0 -> x20] const char *mf - start of the MF
 ; @param [x1 -> x21] const char *mfEnd (exclusive)
@@ -501,6 +543,23 @@ MfParser_reallocOrErr:
     ldp fp, lr, [sp], 16
     ret
 
+_AtomCounts_new:
+    ; Don't understand this, but if I don't persist fp & lr, malloc() hangs:
+    ; https://stackoverflow.com/questions/21732487/how-to-call-malloc-in-arm64-ios-assembly
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
+    mov x0, AtomCounts_TOTAL_SIZE
+        bl _malloc
+    cbz x0, AtomCounts_new__ret
+    mov x1, 0
+        mov x2, AtomCounts_TOTAL_SIZE
+        bl _memset
+    ldr x1, [x0] ; load ref to the array: AtomCounts->counts
+    add x1, x0, AtomCounts_SIZE ; the actual array is stored
+        str x1, [x0]
+AtomCounts_new__ret:
+    ldp fp, lr, [sp], 16
+    ret
 ;
 ; @param ChemikazeCode code
 ; @param char *msg is owned by the error itself now, so the function owning the error must call the respective destructor

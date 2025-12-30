@@ -13,6 +13,9 @@ typedef struct AtomCounts {
 	// The number of atoms of each element: `AtomCounts->counts[e]`, where `e` is ChemElement (see `periodic_table.h`).
 	// The array size is always the same size defined by `EARTH_ELEMENT_CNT` in `periodic_table.h`. Usually, there are
 	// only a few non-zero values.
+	//
+	// Making it a ref to an array was a bad idea? Why not just embed the array in the struct, since it's always
+	// the same size.
 	unsigned *counts;
 } AtomCounts;
 

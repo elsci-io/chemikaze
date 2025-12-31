@@ -26,6 +26,7 @@
 .global _MfParser_findAndApplyGroupCoeffs
 .global _MfParser_combineIntoAtomCounts
 .global _AtomCounts_new
+.global _AtomCounts_free
 
 .data
     ; For use in ccmp where we have to set NZCV flags directly:
@@ -558,6 +559,13 @@ _AtomCounts_new:
     add x1, x0, AtomCounts_SIZE ; the actual array is stored
         str x1, [x0]
 AtomCounts_new__ret:
+    ldp fp, lr, [sp], 16
+    ret
+
+_AtomCounts_free:
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
+    bl _free
     ldp fp, lr, [sp], 16
     ret
 ;

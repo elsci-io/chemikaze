@@ -85,13 +85,13 @@ void printResultElements(size_t len, ChemElement resultElements[]) {
 	printf("\n");
 }
 void testCombineIntoAtomCounts() {
-	printf("Testing combineIntoAtomCounts():\n");
+	printf("Testing combineIntoAtomCounts()\n");
 	ChemElement elements[6] = {0, 1, 2, 3, 0, 1};
 	unsigned      coeffs[6] = {2, 0, 1, 2, 1, 0};
 	AtomCounts *counts = AtomCounts_new();
 	MfParser_combineIntoAtomCounts(elements, coeffs, 6, counts);
 	assertEqualUnsigned((unsigned[EARTH_ELEMENT_CNT]){3, 0, 1, 2}, counts->counts, EARTH_ELEMENT_CNT);
-	// AtomCounts_free(counts);
+	AtomCounts_free(counts);
 }
 void testParseSanitized() {
 	printf("Testing parseSanitized():\n");

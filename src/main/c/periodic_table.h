@@ -7,6 +7,13 @@
 #include "error.h"
 
 typedef unsigned char ChemElement;
+#define ELEMENT_H 0
+#define ELEMENT_C 1
+#define ELEMENT_O 2
+#define ELEMENT_N 3
+#define ELEMENT_P 4
+#define ELEMENT_F 5
+#define ELEMENT_Cl 8
 
 #define EARTH_ELEMENT_CNT 85
 #define INVALID_CHEM_ELEMENT 255

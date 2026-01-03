@@ -27,6 +27,7 @@
 .global _MfParser_combineIntoAtomCounts
 .global _AtomCounts_new
 .global _AtomCounts_free
+.global _AtomCounts_toString
 
 .data
     ; For use in ccmp where we have to set NZCV flags directly:
@@ -61,6 +62,17 @@
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
         .byte ']', ']', ']', ']', ']', ']', ']', ']'
+    EARTH_SYMBOLS: ; see the analogous array in periodic_table.h. Each element is 3 bytes, with either one or two \0
+        .ascii "H\0\0C\0\0O\0\0N\0\0P\0\0F\0\0S\0\0Br\0Cl\0Na\0Li\0Fe\0K\0\0Ca\0Mg\0Ni\0Al\0"
+        .ascii "Pd\0Sc\0V\0\0Cu\0Cr\0Mn\0Co\0Zn\0Ga\0Ge\0As\0Se\0Ti\0Si\0Be\0B\0\0"
+        .ascii "Kr\0Rb\0Sr\0Y\0\0Zr\0Nb\0Mo\0Ru\0Rh\0Ag\0Cd\0In\0Sn\0Sb\0Te\0I\0\0"
+        .ascii "Xe\0Cs\0Ba\0La\0Ce\0Pr\0Nd\0Sm\0Eu\0Gd\0Tb\0Dy\0Ho\0Er\0Tm\0Yb\0"
+        .ascii "Lu\0Hf\0Ta\0Tc\0W\0\0Re\0Os\0Ir\0Pt\0Au\0Hg\0Tl\0Pb\0Bi\0Th\0Pa\0"
+        .ascii "U\0\0He\0Ne\0Ar\0"
+    EARTH_SYMBOLS_LENGTHS:
+        .byte 1,1,1,1,1,1,1,2,2,2,2,2,1,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,2,1,2
+        .byte 2,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2
+        .byte 2,2,2,2,2,1,2,2,2
     PTABLE_ELEMENTHASH_TO_ELEMENT: ; hash(char[2]) -> ChemicalElement, see periodic_table.c
         .byte 0,0,55,83,38,0,0,9,0,0,20,0,50,21,0,15,23,0,0,8,0,0,0,0,0,0,53,43,0,0,13,0
         .byte 74,0,0,69,0,0,27,84,0,0,0,0,0,0,0,64,0,0,42,0,0,0,0,0,0,16,0,0,0,0,0,0
@@ -567,6 +579,120 @@ _AtomCounts_free:
         mov fp, sp
     bl _free
     ldp fp, lr, [sp], 16
+    ret
+; @param [x0] AtomCounts*, which we immediately replace with Atom
+; @local [x20] AtomCounts->counts, which is unsigned*
+; @local [x21] reference to EARTH_SYMBOLS_LENGTHS
+; @local [x22] len of the resulting string
+_AtomCounts_toString:
+    result              .req x0
+    coeffLen            .req x1
+    coeffOrder          .req w2
+    three               .req x3
+    earthSymbolsLengths .req x4 ; this is used in the first part of the function
+    earthSymbols        .req x4 ; this one is used in the 2nd part
+    ten                 .req w10
+    ten_x               .req x10
+    coeff               .req w14
+    i                   .req x15
+    strPos              .req x16
+    CountsArrayRef      .req x20
+    ResultLen           .req x21
+    stp fp, lr, [sp, -0x10]
+        mov fp, sp
+        stp x20, x21, [sp, -0x20]
+    sub sp, sp, 0x20
+
+    mov w10, 10 ; just a constant
+    ldr CountsArrayRef, [x0, AtomCounts_counts] ; AtomCounts->counts (unsigned*)
+    ; First, calculate the len of the resulting string:
+    adrp earthSymbolsLengths, EARTH_SYMBOLS_LENGTHS@page
+        add earthSymbolsLengths, earthSymbolsLengths, EARTH_SYMBOLS_LENGTHS@pageoff
+    mov ResultLen, 1 ; unsigned len = 1, as we'll add a '\0' at the end
+    mov i, 0 ; unsigned i = 0
+    AtomCounts_toString__len_counting_loop:
+        ; count the number of letters in the symbol:
+        ldr coeff, [CountsArrayRef, i, lsl 2] ; AtomCounts->counts[i]
+        cbz coeff, AtomCounts_toString__len_counting_loop__continue ; if coeff==0, continue
+        ldrb w11, [earthSymbolsLengths, i]
+        add ResultLen, ResultLen, x11 ; len += EARTH_SYMBOLS_LENGTHS[i]
+        cmp coeff, 1 ; we don't put "1" coeff to MF
+            b.eq AtomCounts_toString__len_counting_loop__continue
+        ; count the number of symbols in the coefficient:
+        AtomCounts_toString__coeff_len_loop:
+            add ResultLen, ResultLen, 1
+            udiv coeff, coeff, ten
+            cbz coeff, AtomCounts_toString__len_counting_loop__continue ; break out if reached 0
+        AtomCounts_toString__len_counting_loop__continue:
+            add i, i, 1 ; i++
+            cmp i, AtomCounts_EARTH_ELEMENT_CNT ; if i == len
+                b.ne AtomCounts_toString__len_counting_loop
+    AtomCounts_toString__malloc:
+    ; Now generate the actual string
+    mov x0, ResultLen
+        bl _malloc ; malloc(len)
+    ; Go through each element in AtomCounts->counts, and:
+    ; 1. The "i" of the array is the element. Write the symbol of the element to the result (if its coeff wasn't 0).
+    ; 2. Form a string from the AtomCount-count (actual unsigned) and write it too
+    mov i, 0 ; e - chem element idx
+    mov strPos, 0 ; strPosition
+    mov three, 3 ; num of bytes per symbol
+    mov ten, 10 ; after the previous malloc(), it must be re-populated
+    adrp earthSymbols, EARTH_SYMBOLS@page
+        add earthSymbols, earthSymbols, EARTH_SYMBOLS@pageoff
+    AtomCounts_toString__str_forming_loop:
+        ldr coeff, [CountsArrayRef, i, lsl 2] ; AtomCounts->counts[i]
+        cbz coeff, AtomCounts_toString__str_forming_loop__continue ; if coeff==0, continue
+        mul x11, i, three ; each symbol is 3 bytes, so getting Nth element is N * 3
+            ldrb w13, [earthSymbols, x11] ; EARTH_SYMBOLS[e][0]
+            strb w13, [result, strPos] ; result[strPos] = EARTH_SYMBOLS[e][0]
+            add strPos, strPos, 1 ; strPosition++
+        add x11, x11, 1 ; loading next char of the symbol
+            ldrb w13, [earthSymbols, x11] ; EARTH_SYMBOLS[e][0]
+            cbz w13, AtomCounts_toString__skipSecondSymbol ; skipping if we ran into \0 (1-symbol element)
+            strb w13, [result, strPos] ; result[strPos] = EARTH_SYMBOLS[e][0]
+            add strPos, strPos, 1 ; strPosition++
+        AtomCounts_toString__skipSecondSymbol:
+        cmp coeff, 1 ; if coeff=1, we don't add it to the string
+            b.eq AtomCounts_toString__str_forming_loop__continue
+        ; Now finally write the coefficient, but for this we first need to know the order (1, 10, 100):
+        AtomCounts_toString__coeff2_len_loop:
+            mov coeffOrder, 1
+            mov w13, coeff
+            AtomCounts_toString__coeff2_len_loop__body:
+                mul coeffOrder, coeffOrder, ten
+                udiv w13, w13, ten
+                cbnz w13, AtomCounts_toString__coeff2_len_loop__body ; break out if reached 0
+        udiv coeffOrder, coeffOrder, ten ; removing extra 0 that we added in the loop
+        ; We know the len of the coeff string, so form the actual string now:
+        AtomCounts_toString__coeff_toStr:
+            mov w13, coeff ; copy of the coeff
+            AtomCounts_toString__coeff_toStr__loop:
+                udiv w12, w13, coeffOrder ; coeff / 100 or whatever the order is
+                    add w11, w12, '0' ; ascii symbol for the digit
+                    strb w11, [result, strPos] ; str[strPos] = digit ascii
+                add strPos, strPos, 1 ; strPos++
+                sub w13, w13, coeffOrder
+                udiv coeffOrder, coeffOrder, ten ; coeffLen++
+                cbnz coeffOrder, AtomCounts_toString__coeff_toStr__loop ; break out if reached 0
+        AtomCounts_toString__str_forming_loop__continue:
+            add i, i, 1 ; i++
+            cmp i, AtomCounts_EARTH_ELEMENT_CNT ; if i == len
+                b.ne AtomCounts_toString__str_forming_loop
+    AtomCounts_toString__ret:
+    add sp, sp, 0x20
+    ldp fp, lr, [sp, -0x10]
+    ldp x20, x21, [sp, -0x20]
+    .unreq result
+    .unreq coeffLen
+    .unreq three
+    .unreq ten
+    .unreq coeff
+    .unreq i
+    .unreq strPos
+    .unreq ResultLen
+    .unreq CountsArrayRef
+    .unreq earthSymbolsLengths
     ret
 ;
 ; @param ChemikazeCode code

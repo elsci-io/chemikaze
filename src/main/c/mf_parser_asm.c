@@ -55,6 +55,7 @@ void MfParser_scaleBackward(const char *mf, const char *hi/*inclusive*/,
 						    int currStackDepth, unsigned *resultCoeff, int groupCoeff);
 void MfParser_findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs);
 AtomCounts* MfParser_combineIntoAtomCounts(const ChemElement *elements, const unsigned *coeffs, size_t len, AtomCounts *result);
+char* AtomCounts_toString(AtomCounts*);
 
 void printUnsigned(const unsigned resultCoeff[], size_t len) {
 	for (unsigned i = 0; i < len; i++)
@@ -72,6 +73,18 @@ void assertEqualUnsigned(const unsigned expected[], const unsigned actual[], siz
 		}
 	}
 }
+void assertEqualsString(const char* expected, const char* actual) {
+	if (strcmp(expected, actual) != 0) {
+		printf("\033[31mTest failed:");
+		char errorMsg[strlen(expected) + strlen(actual) + 50];
+		sprintf(errorMsg, "Strings are not equal:\nExpected (%lu): %s\n  Actual (%lu): %s\n",
+				strlen(expected), expected, strlen(actual), actual);
+		puts(errorMsg);
+		printf("\033[0m");
+		assert(false);
+	}
+}
+
 void printResultCoeffs(size_t len, unsigned resultCoeff[]) {
 	printf("  Result coeffs:   ");
 	for (unsigned i = 0; i < len; i++)
@@ -83,6 +96,16 @@ void printResultElements(size_t len, ChemElement resultElements[]) {
 	for (unsigned i = 0; i < len; i++)
 		printf("%d ", resultElements[i]);
 	printf("\n");
+}
+void testAtomCounts_toString() {
+	printf("Testing atomCounts_toString()\n");
+	AtomCounts *atoms = AtomCounts_new();
+	atoms->counts[ELEMENT_H] = 2;
+	atoms->counts[ELEMENT_O] = 1;
+	atoms->counts[ELEMENT_O] = 1;
+	atoms->counts[ELEMENT_Cl] = 13;
+	assertEqualsString("H2OCl13", AtomCounts_toString(atoms));
+	AtomCounts_free(atoms);
 }
 void testCombineIntoAtomCounts() {
 	printf("Testing combineIntoAtomCounts()\n");
@@ -212,7 +235,8 @@ int main() {
 	// testScaleBackward();
 	// testFindAndApplyGroupCoeffs();
 	// testParseSanitized();
-	testCombineIntoAtomCounts();
+	// testCombineIntoAtomCounts();
+	testAtomCounts_toString();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

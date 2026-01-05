@@ -388,7 +388,7 @@ _MfParser_findAndApplyGroupCoeffs:
         mov fp, sp
         stp x20, x21, [sp, 32]
         stp x22, x24, [sp, 16]
-        str x25, [sp]
+        str x25, [sp, 8]
     mov x20, x0 ; mf
         mov x21, x1 ; mfEnd
         mov x22, x2 ; resultCoeffs
@@ -459,7 +459,7 @@ _MfParser_findAndApplyGroupCoeffs:
     ldp fp, lr, [sp, 48]
         ldp x20, x21, [sp, 32]
         ldp x22, x24, [sp, 16]
-        ldr x25, [sp]
+        ldr x25, [sp, 8]
         add sp, sp, 64
     ret
 ; Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.

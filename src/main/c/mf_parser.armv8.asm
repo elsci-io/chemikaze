@@ -163,32 +163,48 @@ _MfParser_destroy:
 ; @return x0 AtomCounts* or null. If null then check the error param.
 ;
 _MfParser_parseSanitized:
-    sub sp, sp, 48
-    stp fp, lr, [sp, 32]
+    Mf                    .req x21
+    MfEnd                 .req x22
+    Error                 .req x23
+    MfParserCoeffsArray   .req x20
+    MfParserElementsArray .req x24
+    MfLen                 .req x25
+    stp fp, lr, [sp, -0x10]
         mov fp, sp
-        stp x20, x21, [sp, 16]
-        stp x22, x23, [sp]
-        mov x20, x0 ; MfParser*
-        mov x21, x1 ; char *mf
-        mov x22, x2 ; char *mfEnd
-        mov x23, x3  ; ChemikazeError* to be optionally filled
-    cmp x1, x2
+        stp x20, x21, [sp, -0x20]
+        stp x22, x23, [sp, -0x30]
+        stp x24, x25, [sp, -0x40]
+        sub sp, sp, 0x40
+        mov Mf, x1 ; char *mf
+        mov MfEnd, x2 ; char *mfEnd
+        mov Error, x3  ; ChemikazeError* to be optionally filled
+    cmp Mf, MfEnd
         b.hs _MfParser_parseSanitized__emptyMfError
-    mov x0, x21
-        mov x1, x22
-        ldr x2, [x20, MfParser_elements]
-        ldr x3, [x20, MfParser_coeffs]
-        mov x4, x23
+    sub MfLen, MfEnd, Mf
+    ldr MfParserElementsArray, [x0, MfParser_elements]
+    ldr MfParserCoeffsArray  , [x0, MfParser_coeffs]
+    mov x0, Mf
+        mov x1, MfEnd
+        mov x2, MfParserElementsArray
+        mov x3, MfParserCoeffsArray
+        mov x4, Error
         bl _MfParser_readSymbolsAndCoeffs
-    mov x0, x21
-        mov x1, x22
-        ldr x2, [x20, MfParser_coeffs]
+    mov x0, Mf
+        mov x1, MfEnd
+        mov x2, MfParserCoeffsArray
         bl _MfParser_findAndApplyGroupCoeffs
+    bl _AtomCounts_new
+    mov x3, x0
+        mov x0, MfParserElementsArray
+        mov x1, MfParserCoeffsArray
+        mov x2, MfLen
+        bl _MfParser_combineIntoAtomCounts
 _MfParser_parseSanitized__out:
-    ldp fp, lr, [sp, 32]
-    ldp x20, x21, [sp, 16]
-    ldp x22, x23, [sp]
-    add sp, sp, 48
+    add sp, sp, 0x40
+    ldp fp, lr, [sp, -0x10]
+    ldp x20, x21, [sp, -0x20]
+    ldp x22, x23, [sp, -0x30]
+    ldp x24, x25, [sp, -0x40]
     ret
 _MfParser_parseSanitized__emptyMfError:
     mov x0, ChemikazeErrorCode_PARSE
@@ -383,12 +399,12 @@ _MfParser_consumeCoeff__ret:
 ; @local [x24] - currStackDepth
 ; @local [x25 -> sp] - i, that starts with x0 and ends with x1
 _MfParser_findAndApplyGroupCoeffs:
-    sub sp, sp, 64
-        stp fp, lr, [sp, 48]
+    stp fp, lr, [sp, -0x10]
         mov fp, sp
-        stp x20, x21, [sp, 32]
-        stp x22, x24, [sp, 16]
-        str x25, [sp, 8]
+        stp x20, x21, [sp, -0x20]
+        stp x22, x24, [sp, -0x30]
+        str x25, [sp, -0x38]
+        add sp, sp, -0x40
     mov x20, x0 ; mf
         mov x21, x1 ; mfEnd
         mov x22, x2 ; resultCoeffs
@@ -456,11 +472,11 @@ _MfParser_findAndApplyGroupCoeffs:
             add x25, x25, 1
             b MfParser_findAndApplyGroupCoeffs__loop
     MfParser_findAndApplyGroupCoeffs__loopout:
-    ldp fp, lr, [sp, 48]
-        ldp x20, x21, [sp, 32]
-        ldp x22, x24, [sp, 16]
-        ldr x25, [sp, 8]
-        add sp, sp, 64
+    add sp, sp, 0x40
+        ldp fp, lr, [sp, -0x10]
+        ldp x20, x21, [sp, -0x20]
+        ldp x22, x24, [sp, -0x30]
+        ldr x25, [sp, -0x38]
     ret
 ; Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.
 ;

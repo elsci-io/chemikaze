@@ -127,10 +127,8 @@ void testParseSanitized() {
 	AtomCounts* counts = MfParser_parseSanitized(parser, mf, mfEnd, &error);
 	printResultCoeffs(len, parser->coeffs);
 	printResultElements(len, parser->elements);
-
-	// if (!log_if_error(error, counts))
-	// 	printf("Symbols: %p\n", counts);
-
+	assertEqualUnsigned((unsigned[EARTH_ELEMENT_CNT]){[ELEMENT_H]=16, [ELEMENT_O]=4, [ELEMENT_Cl]=32},
+		counts->counts, EARTH_ELEMENT_CNT);
 }
 
 void testFindAndApplyGroupCoeffs() {
@@ -236,7 +234,8 @@ int main() {
 	// testFindAndApplyGroupCoeffs();
 	// testParseSanitized();
 	// testCombineIntoAtomCounts();
-	testAtomCounts_toString();
+	// testAtomCounts_toString();
+	testParseSanitized();
 // 	printf("Is numeric=%d\n", isBigL	etter('c'));
 // 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
 // 	MfParser *parser = MfParser_new();

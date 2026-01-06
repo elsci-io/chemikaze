@@ -16,7 +16,9 @@
 .global _isBigLetter
 .global _MfParser_new
 .global _MfParser_destroy
+.global _MfParser_parse
 .global _MfParser_parseSanitized
+.global _MfParser_parseOrPanic
 .global _ptable_getElementBySymbol_short
 .global _MfParser_consumeCoeff
 .global _MfParser_consumeSymbolAndCoeff
@@ -152,7 +154,51 @@ _MfParser_destroy:
  _MfParser_destroy_ret:
     ret
 
-;
+; @param [x0->x20] MfParser *parser
+; @param [x1->x21] const char *mf start of the molecular formula, possibly with extra whitespaces
+; @param [x2->x22] ChemikazeError** to fill if error occurs
+; @local [w3] MfNextChar
+; @return x0 AtomCounts* or null. If null then check the error param.
+_MfParser_parse:
+    mfNextChar .req w3
+    MfParser   .req x20
+    Mf         .req x21
+    MfError    .req x22
+    MfEnd      .req x23
+    stp fp, lr, [sp, -0x10]
+        mov fp, sp
+        stp x20, x21, [sp, -0x20]
+        stp x22, x23, [sp, -0x30]
+        add sp, sp, -0x30
+    sub Mf, Mf, 1
+    MfParser_parse__trimLeftLoop:
+        add Mf, Mf, 1
+        ldrb mfNextChar, [Mf]
+        cmp Mf, ' '
+            b.eq MfParser_parse__trimLeftLoop
+    mov x0, Mf ; mfEnd = Mf + strlen(Mf) - 1
+        bl _strlen
+        add MfEnd, Mf, x0
+    MfParser_parse__trimRightLoop:
+        sub MfEnd, MfEnd, 1
+        ldrb mfNextChar, [MfEnd]
+        cmp mfNextChar, ' '
+            b.eq MfParser_parse__trimRightLoop
+    mov x0, MfParser
+        mov x1, Mf
+        add x2, MfEnd, 1
+        mov x3, Error
+        bl _MfParser_parseSanitized
+    .unreq mfNextChar
+    .unreq MfParser
+    .unreq Mf
+    .unreq MfError
+    .unreq MfEnd
+    add sp, sp 0x30
+    ldp fp, lr, [sp, -0x10]
+    ldp x20, x21, [sp, -0x20]
+    ldp x22, x23, [sp, -0x30]
+    ret
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
@@ -161,7 +207,6 @@ _MfParser_destroy:
 ; @param [x2->x22] const char *mfEnd end of the formula, exclusive
 ; @param [x3->x23] ChemikazeError** to fill if error occurs
 ; @return x0 AtomCounts* or null. If null then check the error param.
-;
 _MfParser_parseSanitized:
     Mf                    .req x21
     MfEnd                 .req x22

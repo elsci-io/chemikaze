@@ -44,6 +44,7 @@
     .equ MfParser_SIZE, 24 ; total size after alignment
     .equ MfParser_DEFAULT_ELEMENTS_CNT, 20 ; number of elements originally in the array
 
+    .equ NULL, 0
     ; enum ChemikazeErrorCode:
     .equ ChemikazeErrorCode_PARSE, 0
     .equ ChemikazeErrorCode_OOM, 1
@@ -61,6 +62,7 @@
     .equ AtomCounts_EARTH_ELEMENT_CNT, 85
 
     ChemikazeError_EMPTY_MOL_MSG: .asciz "Empty Molecular Formula"
+    ChemikazeError_NULL_MF_MSG: .asciz "MF is null"
 
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
@@ -174,6 +176,7 @@ _MfParser_parse:
     mov MfParser, x0
         mov Mf, x1
         mov Error, x2
+    cbz Mf, MfParser_parse__mfNullPointerError
     sub Mf, Mf, 1
     MfParser_parse__trimLeftLoop:
         add Mf, Mf, 1
@@ -193,31 +196,57 @@ _MfParser_parse:
         add x2, MfEnd, 1
         mov x3, Error
         bl _MfParser_parseSanitized
-    .unreq mfNextChar
-    .unreq MfParser
-    .unreq Mf
-    .unreq Error
-    .unreq MfEnd
-    add sp, sp, 0x30
-    ldp fp, lr, [sp, -0x10]
-    ldp x20, x21, [sp, -0x20]
-    ldp x22, x23, [sp, -0x30]
-    ret
+        b MfParser_parse__ret
+    MfParser_parse__mfNullPointerError:
+        mov x0, ChemikazeErrorCode_NULL_POINTER
+            adrp x1, ChemikazeError_NULL_MF_MSG@page
+            add x1, x1, ChemikazeError_NULL_MF_MSG@pageoff
+            bl _ChemikazeError_new
+        str x0, [Error]
+        mov x0, NULL
+    MfParser_parse__ret:
+        .unreq mfNextChar
+        .unreq MfParser
+        .unreq Mf
+        .unreq Error
+        .unreq MfEnd
+        add sp, sp, 0x30
+        ldp fp, lr, [sp, -0x10]
+        ldp x20, x21, [sp, -0x20]
+        ldp x22, x23, [sp, -0x30]
+        ret
 
 ; @param [x0->x20] MfParser *parser
 ; @param [x1->x21] const char *mf start of the molecular formula, possibly with extra whitespaces
 ; @local [x2] Error
 _MfParser_parseOrPanic:
-    stp lr, fp, [sp, -0x10]
-    sub sp, sp, 0x20
+    MfParser .req x20
+    Mf       .req x21
+    error    .req x2
+    sub sp, sp, 0x30
+        stp lr, fp, [sp, 0x20]
+        stp x20, x21, [sp, 0x10]
+    mov MfParser, x0
+        mov Mf, x1
+    str xzr, [sp] ; error = NULL
     mov x2, sp
         bl _MfParser_parse
-    ldr x2, [sp]
-    cbz x2, MfParser_parseOrPanic__ret
-    ; todo: handle error
+        ldr error, [sp]
+    cbz x0, MfParser_parseOrPanic__error
     MfParser_parseOrPanic__ret:
-        add sp, sp, 0x20
+        ldp lr, fp, [sp, 0x20]
+        ldp x20, x21, [sp, 0x10]
+        add sp, sp, 0x30
         ret
+    MfParser_parseOrPanic__error:
+        ldr x0, [error, ChemikazeError_msg]
+            mov x1, 2 ; stderr
+            bl _puts
+        mov x0, error
+            bl _ChemikazeError_destroy
+        mov x16, 1
+            mov x0, 62 ; error code
+            svc 1
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
@@ -795,28 +824,45 @@ _ChemikazeError_new:
     ldp x19, x20, [sp], 16
     ldp fp, lr, [sp], 16
     ret
+_ChemikazeError_destroy:
+    stp fp, lr, [sp, -0x10]!
+    bl _free
+    add sp, sp, 0x10
+    ret
 
 ; @param [x0] - ref to the 2-byte array
 _ptable_getElementBySymbol:
-    ldrb w1, [x0]
-    ldrb w2, [x0, 1]
-    mul w3, w1, w2
-    ubfx w4, w0, 8, 8 ; take the 2nd byte
-    eor w5, w3, w4
-    and w6, w5, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
-    adrp x7, PTABLE_ELEMENTHASH_TO_ELEMENT@page
-    add x7, x7, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
-    ldrb w0, [x7, x6]
+    char1 .req w1
+    char2 .req w2
+    coeff .req w3
+    hash  .req w7
+    hashX .req x7
+    table .req x8
+    ldrb char1, [x0]
+    ldrb char2, [x0, 1]
+    mov coeff, 277
+    mul char1, char1, coeff
+    eor hash, char1, char2
+        and hash, hash, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
+    adrp table, PTABLE_ELEMENTHASH_TO_ELEMENT@page
+        add table, table, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
+    ldrb w0, [table, hashX]
     ret
 ; @param short symbol, where byte#0 is the big letter, and byte#1 is the small letter or 0
 _ptable_getElementBySymbol_short:
-    and w1, w0, 0xFF
-    mov w2, 277
-    mul w3, w1, w2
-    ubfx w4, w0, 8, 8 ; take the 2nd byte
-    eor w5, w3, w4
-    and w6, w5, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
-    adrp x7, PTABLE_ELEMENTHASH_TO_ELEMENT@page
-    add x7, x7, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
-    ldrb w0, [x7, x6]
+    char1 .req w1
+    char2 .req w2
+    coeff .req w3
+    table .req x7
+    hash  .req w7
+    hashX .req x7
+    and char1, w0, 0xFF
+    mov coeff, 277
+    mul char1, char1, coeff
+    ubfx char2, w0, 8, 8 ; take the 2nd byte
+    eor w5, char1, char2
+    and hash, w5, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
+    adrp table, PTABLE_ELEMENTHASH_TO_ELEMENT@page
+    add table, table, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
+    ldrb w0, [table, hashX]
     ret

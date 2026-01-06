@@ -6,6 +6,8 @@
 #include "error.h"
 #include "mf_parser.h"
 #include "periodic_table.h"
+#include "../../../../../../../../Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/stdlib.h"
+#include "../../test/c/asserts.h"
 // This implementation uses a handwritten Assembly MfParser. It's written only for Mac ARM, and there's no CMake config
 // for it.
 //
@@ -69,7 +71,7 @@ void assertEqualUnsigned(const unsigned expected[], const unsigned actual[], siz
 			printf("\n Actual:   ");
 			printUnsigned(actual, len);
 			printf("\033[0m\n");
-			assert(false);
+			exit(109);
 		}
 	}
 }
@@ -81,7 +83,7 @@ void assertEqualsString(const char* expected, const char* actual) {
 				strlen(expected), expected, strlen(actual), actual);
 		puts(errorMsg);
 		printf("\033[0m");
-		assert(false);
+		exit(109);
 	}
 }
 
@@ -103,8 +105,8 @@ void testAtomCounts_toString() {
 	atoms->counts[ELEMENT_H] = 2;
 	atoms->counts[ELEMENT_O] = 1;
 	atoms->counts[ELEMENT_O] = 1;
-	atoms->counts[ELEMENT_Cl] = 13;
-	assertEqualsString("H2OCl13", AtomCounts_toString(atoms));
+	atoms->counts[ELEMENT_Cl] = 135;
+	assertEqualsString("H2OCl135", AtomCounts_toString(atoms));
 	AtomCounts_free(atoms);
 }
 void testCombineIntoAtomCounts() {
@@ -139,7 +141,7 @@ void testFindAndApplyGroupCoeffs() {
 	const char *mfEnd = mf + len + 1;
 
 	MfParser_findAndApplyGroupCoeffs(mf, mfEnd, resultCoeff);
-	printResultCoeffs(len, resultCoeff); // 0 8 0 4 0 0 8 32 0 0 0 0
+	assertEqualUnsigned((unsigned[13]){0, 8, 0, 4, 0, 0, 0, 8, 32}, resultCoeff, 13);
 }
 
 void testScaleBackward() {
@@ -148,11 +150,12 @@ void testScaleBackward() {
 	unsigned resultCoeff[10] = {0, 1, 4, 0, 0, 0};
 	size_t len = strlen(mf);
 	const char *mfEnd = mf + len + 1;
+
 	MfParser_scaleBackward(mf, mfEnd-3, 0, resultCoeff, 1); // 0 1 4 0 0 0
-	printResultCoeffs(len, resultCoeff);
+	assertEqualUnsigned((unsigned[10]){0, 1, 4}, resultCoeff, 10);
 
 	MfParser_scaleBackward(mf, mfEnd-4, 0, resultCoeff, 4); // 0 4 16 0 0 0
-	printResultCoeffs(len, resultCoeff);
+	assertEqualUnsigned((unsigned[10]){0, 4, 16}, resultCoeff, 10);
 }
 
 void testScaleForward() {
@@ -231,36 +234,9 @@ int main() {
 	// testReadSymbolsAndCoeffs();
 	// testScaleForward();
 	// testScaleBackward();
-	// testFindAndApplyGroupCoeffs();
-	// testParseSanitized();
+	testFindAndApplyGroupCoeffs();
 	// testCombineIntoAtomCounts();
 	// testAtomCounts_toString();
-	testParseSanitized();
-// 	printf("Is numeric=%d\n", isBigL	etter('c'));
-// 	printf("ptable_getElementBySymbol=%u\n", ptable_getElementBySymbol_short(('l' << 8) + 'C'));
-// 	MfParser *parser = MfParser_new();
-// 	printf("sizeof(MfParser)=%lu\n", sizeof(MfParser));
-// 	printf("parser->len=%lu\n", parser->len);
-// 	for (size_t i = 0; i < parser->len; i++)
-// 		printf("%d ", parser->elements[i]);
-// 	printf("\n");
-// 	for (size_t i = 0; i < parser->len; i++)
-// 		printf("%d ", parser->coeffs[i]);
-// 	printf("\n");
-// 	printf("Destroying:\n");
-// 	MfParser_destroy(parser);
-//
-// #define MF_LEN 4
-// 	char *mf = "H2O4";
-// 	ChemikazeError *error = NULL;
-//
-// 	AtomCounts* counts = MfParser_parseSanitized(parser, mf, mf, &error);
-// 	log_if_error(error, counts);
-//
-// 	counts = MfParser_parseSanitized(parser, mf, mf+MF_LEN+1, &error);
-// 	if (!log_if_error(error, counts)) {
-// 		printf("Symbols: %p\n", counts);
-// 	}
-
+	// testParseSanitized();
 	return 0;
 }

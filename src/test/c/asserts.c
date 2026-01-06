@@ -4,6 +4,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 void assertEqualsDouble(double expected, double actual, double absError) {
@@ -12,7 +13,7 @@ void assertEqualsDouble(double expected, double actual, double absError) {
 		char errorMsg[1024];
 		sprintf(errorMsg, "Expected: %f,\n  Actual: %f\n", expected, actual);
 		logError(errorMsg);
-		assert(false);
+		exit(109);
 	}
 }
 void assertEqualsString(const char* expected, const char* actual) {
@@ -22,7 +23,7 @@ void assertEqualsString(const char* expected, const char* actual) {
 		sprintf(errorMsg, "Strings are not equal:\nExpected (%lu): %s\n  Actual (%lu): %s\n",
 				strlen(expected), expected, strlen(actual), actual);
 		logError(errorMsg);
-		assert(false);
+		exit(109);
 	}
 }
 
@@ -37,6 +38,6 @@ void assertEqualsUnsigned(unsigned expected, unsigned actual) {
 		memset(errorMsg, 0, errorMsgSize);
 		sprintf(errorMsg, "  Actual: %d", actual);
 		logError(errorMsg);
-		assert(false);
+		exit(109);
 	}
 }

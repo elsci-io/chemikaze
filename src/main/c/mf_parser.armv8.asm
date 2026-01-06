@@ -168,11 +168,11 @@ _MfParser_parse:
     Mf         .req x21
     Error      .req x22
     MfEnd      .req x23
-    stp fp, lr, [sp, -0x10]
+    sub sp, sp, 0x30
+        stp fp, lr, [sp, 0x20]
         mov fp, sp
-        stp x20, x21, [sp, -0x20]
-        stp x22, x23, [sp, -0x30]
-        add sp, sp, -0x30
+        stp x20, x21, [sp, 0x10]
+        stp x22, x23, [sp, 0x0]
     mov MfParser, x0
         mov Mf, x1
         mov Error, x2
@@ -210,10 +210,10 @@ _MfParser_parse:
         .unreq Mf
         .unreq Error
         .unreq MfEnd
+        ldp fp, lr, [sp, 0x20]
+        ldp x20, x21, [sp, 0x10]
+        ldp x22, x23, [sp]
         add sp, sp, 0x30
-        ldp fp, lr, [sp, -0x10]
-        ldp x20, x21, [sp, -0x20]
-        ldp x22, x23, [sp, -0x30]
         ret
 
 ; @param [x0->x20] MfParser *parser
@@ -247,6 +247,9 @@ _MfParser_parseOrPanic:
         mov x16, 1
             mov x0, 62 ; error code
             svc 1
+    .unreq MfParser
+    .unreq Mf
+    .unreq error
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
@@ -262,17 +265,17 @@ _MfParser_parseSanitized:
     MfParserCoeffsArray   .req x20
     MfParserElementsArray .req x24
     MfLen                 .req x25
-    stp fp, lr, [sp, -0x10]
+    sub sp, sp, 0x40
+        stp fp, lr, [sp, 0x30]
         mov fp, sp
-        stp x20, x21, [sp, -0x20]
-        stp x22, x23, [sp, -0x30]
-        stp x24, x25, [sp, -0x40]
-        sub sp, sp, 0x40
+        stp x20, x21, [sp, 0x20]
+        stp x22, x23, [sp, 0x10]
+        stp x24, x25, [sp, 0x00]
         mov Mf, x1 ; char *mf
         mov MfEnd, x2 ; char *mfEnd
         mov Error, x3  ; ChemikazeError* to be optionally filled
     cmp Mf, MfEnd
-        b.hs _MfParser_parseSanitized__emptyMfError
+        b.hs MfParser_parseSanitized__emptyMfError
     sub MfLen, MfEnd, Mf
     ldr MfParserElementsArray, [x0, MfParser_elements]
     ldr MfParserCoeffsArray  , [x0, MfParser_coeffs]
@@ -292,21 +295,21 @@ _MfParser_parseSanitized:
         mov x1, MfParserCoeffsArray
         mov x2, MfLen
         bl _MfParser_combineIntoAtomCounts
-_MfParser_parseSanitized__out:
-    add sp, sp, 0x40
-    ldp fp, lr, [sp, -0x10]
-    ldp x20, x21, [sp, -0x20]
-    ldp x22, x23, [sp, -0x30]
-    ldp x24, x25, [sp, -0x40]
-    ret
-_MfParser_parseSanitized__emptyMfError:
-    mov x0, ChemikazeErrorCode_PARSE
-        adrp x1, ChemikazeError_EMPTY_MOL_MSG@page
-        add x1, x1, ChemikazeError_EMPTY_MOL_MSG@pageoff
-        bl _ChemikazeError_new
-    str x0, [x23] ; return ChemikazeError*
-    mov x0, 0 ; return null
-    b _MfParser_parseSanitized__out
+    MfParser_parseSanitized__out:
+        ldp fp, lr, [sp, 0x30]
+        ldp x20, x21, [sp, 0x20]
+        ldp x22, x23, [sp, 0x10]
+        ldp x24, x25, [sp, 0x00]
+        add sp, sp, 0x40
+        ret
+    MfParser_parseSanitized__emptyMfError:
+        mov x0, ChemikazeErrorCode_PARSE
+            adrp x1, ChemikazeError_EMPTY_MOL_MSG@page
+            add x1, x1, ChemikazeError_EMPTY_MOL_MSG@pageoff
+            bl _ChemikazeError_new
+        str x0, [x23] ; return ChemikazeError*
+        mov x0, 0 ; return null
+        b MfParser_parseSanitized__out
 
 ; @param [x0] const ChemElement *elements
 ; @param [x1] const unsigned *coeffs
@@ -492,12 +495,12 @@ _MfParser_consumeCoeff__ret:
 ; @local [x24] - currStackDepth
 ; @local [x25 -> sp] - i, that starts with x0 and ends with x1
 _MfParser_findAndApplyGroupCoeffs:
-    stp fp, lr, [sp, -0x10]
+    sub sp, sp, 0x40
+        stp fp, lr, [sp, 0x30]
         mov fp, sp
-        stp x20, x21, [sp, -0x20]
-        stp x22, x24, [sp, -0x30]
-        str x25, [sp, -0x38]
-        add sp, sp, -0x40
+        stp x20, x21, [sp, 0x20]
+        stp x22, x24, [sp, 0x10]
+        str x25, [sp, 0x08]
     mov x20, x0 ; mf
         mov x21, x1 ; mfEnd
         mov x22, x2 ; resultCoeffs
@@ -565,12 +568,12 @@ _MfParser_findAndApplyGroupCoeffs:
             add x25, x25, 1
             b MfParser_findAndApplyGroupCoeffs__loop
     MfParser_findAndApplyGroupCoeffs__loopout:
-    add sp, sp, 0x40
-        ldp fp, lr, [sp, -0x10]
-        ldp x20, x21, [sp, -0x20]
-        ldp x22, x24, [sp, -0x30]
-        ldr x25, [sp, -0x38]
-    ret
+        ldp fp, lr, [sp, 0x30]
+        ldp x20, x21, [sp, 0x20]
+        ldp x22, x24, [sp, 0x10]
+        ldr x25, [sp, 0x08]
+        add sp, sp, 0x40
+        ret
 ; Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.
 ;
 ; @param [x0] mf the start of the MF string
@@ -737,9 +740,9 @@ _AtomCounts_toString:
             cmp i, AtomCounts_EARTH_ELEMENT_CNT ; if i == len
                 b.ne AtomCounts_toString__len_counting_loop
     AtomCounts_toString__malloc:
-    ; Now generate the actual string
-    mov x0, ResultLen
-        bl _malloc ; malloc(len)
+        ; Now generate the actual string
+        mov x0, ResultLen
+            bl _malloc ; malloc(len)
     ; Go through each element in AtomCounts->counts, and:
     ; 1. The "i" of the array is the element. Write the symbol of the element to the result (if its coeff wasn't 0).
     ; 2. Form a string from the AtomCount-count (actual unsigned) and write it too
@@ -781,7 +784,7 @@ _AtomCounts_toString:
                     add w11, w12, '0' ; ascii symbol for the digit
                     strb w11, [result, strPos] ; str[strPos] = digit ascii
                 add strPos, strPos, 1 ; strPos++
-                sub w13, w13, coeffOrder
+                msub w13, coeffOrder, w12, w13
                 udiv coeffOrder, coeffOrder, ten ; coeffLen++
                 cbnz coeffOrder, AtomCounts_toString__coeff_toStr__loop ; break out if reached 0
         AtomCounts_toString__str_forming_loop__continue:
@@ -847,15 +850,22 @@ _ptable_getElementBySymbol:
     adrp table, PTABLE_ELEMENTHASH_TO_ELEMENT@page
         add table, table, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
     ldrb w0, [table, hashX]
+    .unreq char1
+    .unreq char2
+    .unreq coeff
+    .unreq hash
+    .unreq hashX
+    .unreq table
     ret
+
 ; @param short symbol, where byte#0 is the big letter, and byte#1 is the small letter or 0
 _ptable_getElementBySymbol_short:
     char1 .req w1
     char2 .req w2
     coeff .req w3
-    table .req x7
     hash  .req w7
     hashX .req x7
+    table .req x8
     and char1, w0, 0xFF
     mov coeff, 277
     mul char1, char1, coeff
@@ -865,4 +875,10 @@ _ptable_getElementBySymbol_short:
     adrp table, PTABLE_ELEMENTHASH_TO_ELEMENT@page
     add table, table, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
     ldrb w0, [table, hashX]
+    .unreq char1
+    .unreq char2
+    .unreq coeff
+    .unreq hash
+    .unreq hashX
+    .unreq table
     ret

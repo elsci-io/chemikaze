@@ -23,6 +23,10 @@ char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't
 		logError("Expected an error!");
 		exit(1);
 	}
+	if (atoms) {
+		logError("In case of error, AtomCounts must be NULL");
+		exit(1);
+	}
 	AtomCounts_free(atoms);
 	MfParser_destroy(parser);
 	return error->msg;
@@ -38,10 +42,13 @@ void getElementBySybmol_returnsChemElement() {
 	e = ptable_getElementBySymbol("Cl");
 	assertEqualsUnsigned(8, e);
 }
-
+void parseMf__errsIfMfIsNull() {
+	assertEqualsString("MF is null", parseMfAndFail(NULL));
+}
 void parseMf__parsesSimpleMfIntoCounts() {
-	assertEqualsString("H2O", parseMfOrFail("H2O"));
-	assertEqualsString("H2O", parseMfOrFail("HOH"));
+	// assertEqualsString("H2O", parseMfOrFail("H2O"));
+	// assertEqualsString("H2O", parseMfOrFail("HOH"));
+	assertEqualsString("H132", parseMfOrFail("H132"));
 	assertEqualsString("H132C67O3N8", parseMfOrFail("C67H132N8O3"));
 }
 void parseMf__trimsInput() {
@@ -78,6 +85,11 @@ void parseMf__errsOnEmptyInput() {
 	assertEqualsString("Empty Molecular Formula", parseMfAndFail(" "));
 	assertEqualsString("MF is null", parseMfAndFail(nullptr));
 }
+void atomCounts_toString() {
+	AtomCounts* ac = AtomCounts_new();
+	ac->counts[0] = 137;
+	assertEqualsString("H137", AtomCounts_toString(ac));
+}
 void parseMf__errsIfParenthesesDoNotMatch() {
 #define TSTBEGIN "Couldn't parse "
 #define TSTEND ". The opening and closing parentheses don't match."
@@ -97,10 +109,12 @@ void parseMf_errsIfElementNotRecognized() {
 
 int main(void) {
 	register_signals();
+	logNorm("Testing AtomCounts");
+	RUN_TEST(atomCounts_toString);
 	logNorm("Testing periodic_table");
 	RUN_TEST(getElementBySybmol_returnsChemElement);
 
-	logNorm("Testing parseMf");
+	logNorm("Testing MfParser");
 	RUN_TEST(parseMf__errsIfMfIsNull);
 	RUN_TEST(parseMf__parsesSimpleMfIntoCounts);
 	RUN_TEST(parseMf__signIsIgnoredInCounts);

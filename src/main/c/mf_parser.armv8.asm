@@ -20,6 +20,7 @@
 .global _MfParser_parseSanitized
 .global _MfParser_parseOrPanic
 .global _ptable_getElementBySymbol_short
+.global _ptable_getElementBySymbol
 .global _MfParser_consumeCoeff
 .global _MfParser_consumeSymbolAndCoeff
 .global _MfParser_readSymbolsAndCoeffs
@@ -163,13 +164,16 @@ _MfParser_parse:
     mfNextChar .req w3
     MfParser   .req x20
     Mf         .req x21
-    MfError    .req x22
+    Error      .req x22
     MfEnd      .req x23
     stp fp, lr, [sp, -0x10]
         mov fp, sp
         stp x20, x21, [sp, -0x20]
         stp x22, x23, [sp, -0x30]
         add sp, sp, -0x30
+    mov MfParser, x0
+        mov Mf, x1
+        mov Error, x2
     sub Mf, Mf, 1
     MfParser_parse__trimLeftLoop:
         add Mf, Mf, 1
@@ -192,13 +196,28 @@ _MfParser_parse:
     .unreq mfNextChar
     .unreq MfParser
     .unreq Mf
-    .unreq MfError
+    .unreq Error
     .unreq MfEnd
-    add sp, sp 0x30
+    add sp, sp, 0x30
     ldp fp, lr, [sp, -0x10]
     ldp x20, x21, [sp, -0x20]
     ldp x22, x23, [sp, -0x30]
     ret
+
+; @param [x0->x20] MfParser *parser
+; @param [x1->x21] const char *mf start of the molecular formula, possibly with extra whitespaces
+; @local [x2] Error
+_MfParser_parseOrPanic:
+    stp lr, fp, [sp, -0x10]
+    sub sp, sp, 0x20
+    mov x2, sp
+        bl _MfParser_parse
+    ldr x2, [sp]
+    cbz x2, MfParser_parseOrPanic__ret
+    ; todo: handle error
+    MfParser_parseOrPanic__ret:
+        add sp, sp, 0x20
+        ret
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
@@ -777,6 +796,18 @@ _ChemikazeError_new:
     ldp fp, lr, [sp], 16
     ret
 
+; @param [x0] - ref to the 2-byte array
+_ptable_getElementBySymbol:
+    ldrb w1, [x0]
+    ldrb w2, [x0, 1]
+    mul w3, w1, w2
+    ubfx w4, w0, 8, 8 ; take the 2nd byte
+    eor w5, w3, w4
+    and w6, w5, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
+    adrp x7, PTABLE_ELEMENTHASH_TO_ELEMENT@page
+    add x7, x7, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
+    ldrb w0, [x7, x6]
+    ret
 ; @param short symbol, where byte#0 is the big letter, and byte#1 is the small letter or 0
 _ptable_getElementBySymbol_short:
     and w1, w0, 0xFF

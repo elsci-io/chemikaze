@@ -5,7 +5,8 @@
 #ifndef CMAKE_PET_LOG_H
 #define CMAKE_PET_LOG_H
 
-void logInfo(char* str);
+void logSuccess(char* str);
 void logError(char* str);
+void logNorm(char* str);
 
 #endif //CMAKE_PET_LOG_H

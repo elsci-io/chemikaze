@@ -97,10 +97,11 @@ void parseMf_errsIfElementNotRecognized() {
 
 int main(void) {
 	register_signals();
-	logInfo("Testing periodic_table");
+	logNorm("Testing periodic_table");
 	RUN_TEST(getElementBySybmol_returnsChemElement);
 
-	logInfo("Testing parseMf");
+	logNorm("Testing parseMf");
+	RUN_TEST(parseMf__errsIfMfIsNull);
 	RUN_TEST(parseMf__parsesSimpleMfIntoCounts);
 	RUN_TEST(parseMf__signIsIgnoredInCounts);
 	RUN_TEST(parseMf__trimsInput);

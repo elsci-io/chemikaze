@@ -4,7 +4,6 @@
 
 #ifndef CHEMIKAZE_PERIODICT_TABLE_H
 #define CHEMIKAZE_PERIODICT_TABLE_H
-#include "error.h"
 
 typedef unsigned char ChemElement;
 #define ELEMENT_H 0

@@ -1,9 +1,6 @@
 #include "periodic_table.h"
 
 #include <stdio.h>
-#include <stdlib.h>
-
-#include "error.h"
 
 #define INDEX_BUCKET_CNT 512
 #define INDEX_HASH_MASK (INDEX_BUCKET_CNT-1)

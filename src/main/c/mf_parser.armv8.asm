@@ -37,6 +37,7 @@
     .equ NZCV_EQ, 0b0100
     .equ NZCV_HI, 0b0010
 
+    .equ INVALID_CHEM_ELEMENT, 255
     ; struct MfParser field offsets and so on:
     .equ MfParser_elements, 0
     .equ MfParser_coeffs, 8
@@ -66,6 +67,7 @@
     ChemikazeError_COULD_NOT_PARSE_MSG: .asciz "Couldn't parse "
     ChemikazeError_DOT_AND_SPACE_MSG: .asciz ". "
     ChemikazeError_PARENTH_DO_NOT_MATCH_MSG: .asciz "The opening and closing parentheses don't match."
+    ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG: .asciz "Unknown chemical symbol: %c%c"
 
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
@@ -420,51 +422,91 @@ MfParser_readSymbolsAndCoeffs__out:
 ; @param [x2->x22] const char *mfEnd, exclusive
 ; @param [x3->x23] ChemElement *resultElements
 ; @param [x4->x24] unsigned *resultCoeff
-; @param [x5] ChemikazeError **error TODO: implement error handling
-; @local [w10] - 2-byte symbol, the letters go in the opposite order: lC (for Cl), \0H for H\0
-; @local [x11] char *i - pointer to the current element
-; @local [w13] char *(i+1) - next element
-; @local [x25] size_t resultPos
+; @param [x5->x25] ChemikazeError
 _MfParser_consumeSymbolAndCoeff:
-    stp fp, lr, [sp, -16]!
+    symbolByte1    .req w8 ;
+    symbolByte2    .req w9 ; char *(i+1) - next element
+    symbolShort    .req w10 ; 2-byte symbol, the letters go in the opposite order: lC (for Cl), \0H for H\0
+    i_             .req x11 ; char *i - pointer to the current element
+    Mf             .req x20
+    I__            .req x21
+    MfEnd          .req x22
+    ResultElements .req x23
+    ResultCoeffs   .req x24
+    Error          .req x25
+    ResultPos      .req x26 ; size_t resultPos
+    sub sp, sp, 0x50
+        stp fp, lr, [sp, 0x40]
         mov fp, sp
-    stp x20, x21, [sp, -16]!
-        mov x20, x0 ; char *mf
-        mov x21, x1 ; char **i
-    stp x22, x23, [sp, -16]!
-        mov x22, x2 ; char *mfEnd
-        mov x23, x3 ; ChemElement *resultElements
-    stp x24, x25, [sp, -16]!
-        mov x24, x4 ; unsigned *resultCoeff
-
-    ldr x11, [x21] ; *i
-    sub x25, x11, x20 ; size_t resultPos = *i - mf
-    ldrb w10, [x11], 1 ; char symbol = ++(*i)
-    str x11, [x21] ; store the incremented *i to **i
-    ldrb w13, [x11], 1 ; load the next symbol
-    sub w14, w13, 'a' ; if (++(*i) < mfEnd && isSmallLetter(**i))
+        stp x20, x21, [sp, 0x30]
+        stp x22, x23, [sp, 0x20]
+        stp x24, x25, [sp, 0x10]
+        stp x26, x27, [sp]
+    mov Mf, x0 ; char *mf
+        mov I__, x1 ; char **i
+        mov MfEnd, x2 ; char *mfEnd
+        mov ResultElements, x3 ; ChemElement *resultElements
+        mov ResultCoeffs, x4 ; unsigned *resultCoeff
+        mov Error, x5 ; ChemikazeError
+    ldr i_, [I__] ; *i
+    sub ResultPos, i_, Mf ; size_t resultPos = *i - mf
+    ldrb symbolByte1, [i_], 1 ; char symbol = ++(*i)
+    str i_, [I__] ; store the incremented *i to **i
+    ldrb symbolByte2, [i_], 1 ; load the next symbol
+    mov symbolShort, symbolByte1
+    sub w14, symbolByte2, 'a' ; if (++(*i) < mfEnd && isSmallLetter(**i))
         cmp w14, 26 ; isSmallLetter(*i)
-            cset w9, hi
-        cmp x11, x1 ; *i < mfEnd
-            cset w8, hi
-        orr w8, w8, w9 ; *i >= mfEnd || !isSmallLetter(w14)
-        cbnz w8, MfParser_consumeSymbolAndCoeff__skip2ndSymbol
-    bfi w10, w13, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
-    str x11, [x21] ; store the incremented *i to **i
-MfParser_consumeSymbolAndCoeff__skip2ndSymbol:
-    mov w0, w10 ;
-        bl _ptable_getElementBySymbol_short
-    strb w0, [x23, x25]
-    mov x0, x21
-        mov x1, x22
-        bl _MfParser_consumeCoeff
-    str w0, [x24, x25, lsl 2] ; resultCoeff[resultPos] = w0
-
-    ldp x24, x25, [sp], 16
-    ldp x22, x23, [sp], 16
-    ldp x20, x21, [sp], 16
-    ldp fp, lr, [sp], 16
-    ret
+            cset w6, hi
+        cmp i_, x1 ; *i < mfEnd
+            cset w7, hi
+        orr w7, w7, w6 ; *i >= mfEnd || !isSmallLetter(w14)
+        cbnz w7, MfParser_consumeSymbolAndCoeff__skip2ndSymbol
+    bfi symbolShort, symbolByte2, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
+    str i_, [I__] ; store the incremented *i to **i
+    MfParser_consumeSymbolAndCoeff__skip2ndSymbol:
+        mov w0, symbolShort ;
+            bl _ptable_getElementBySymbol_short
+        cmp w0, INVALID_CHEM_ELEMENT
+            b.eq MfParser_consumeSymbolAndCoeff__invalidChemElementError
+        strb w0, [ResultElements, ResultPos]
+        mov x0, I__
+            mov x1, MfEnd
+            bl _MfParser_consumeCoeff
+        str w0, [ResultCoeffs, ResultPos, lsl 2] ; resultCoeff[resultPos] = w0
+    MfParser_consumeSymbolAndCoeff__ret:
+        ldp fp, lr, [sp, 0x40]
+        ldp x20, x21, [sp, 0x30]
+        ldp x22, x23, [sp, 0x20]
+        ldp x24, x25, [sp, 0x10]
+        ldp x26, x27, [sp]
+        add sp, sp, 0x50
+        ret
+    MfParser_consumeSymbolAndCoeff__invalidChemElementError:
+        mov x0, 30 ; errorMsg
+            bl _malloc
+        sub sp, sp, 0x10
+        adrp x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@page
+            add x1, x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@pageoff
+            stp symbolByte1, symbolByte2, [sp]
+            bl _sprintf
+        add sp, sp, 0x10
+        mov x1, Mf
+            sub x2, MfEnd, Mf
+            bl _ChemikazeError_newParsing
+        str x0, [Error]
+        mov x0, NULL
+        b MfParser_consumeSymbolAndCoeff__ret
+        .unreq symbolByte1
+        .unreq symbolByte2
+        .unreq symbolShort
+        .unreq i_
+        .unreq Mf
+        .unreq I__
+        .unreq MfEnd
+        .unreq ResultElements
+        .unreq ResultCoeffs
+        .unreq Error
+        .unreq ResultPos
 
 ; @param char **i symbol to start with
 ; @param const char *mfEnd - end of the MF
@@ -588,6 +630,7 @@ _MfParser_findAndApplyGroupCoeffs:
             b MfParser_findAndApplyGroupCoeffs__loop
     MfParser_findAndApplyGroupCoeffs__loopout:
         cbnz CurrStackDepth, MfParser_findAndApplyGroupCoeffs__unmatchedParenethError
+        mov x0, NULL ; returning no error
     MfParser_findAndApplyGroupCoeffs__ret:
         ldp fp, lr, [sp, 0x30]
         ldp x20, x21, [sp, 0x20]

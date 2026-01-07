@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "../../main/c/signals.h"
@@ -20,7 +21,9 @@ char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't
 	MfParser *parser = MfParser_new();
 	AtomCounts *atoms = MfParser_parse(parser, mf, &error);
 	if (!error) {
-		logError("Expected an error!");
+		char buffer[1024];
+		sprintf(buffer, "Expected an error for: %s", mf);
+		logError(buffer);
 		exit(1);
 	}
 	if (atoms) {
@@ -46,8 +49,10 @@ void parseMf__errsIfMfIsNull() {
 	assertEqualsString("MF is null", parseMfAndFail(NULL));
 }
 void parseMf__parsesSimpleMfIntoCounts() {
-	// assertEqualsString("H2O", parseMfOrFail("H2O"));
-	// assertEqualsString("H2O", parseMfOrFail("HOH"));
+	assertEqualsString("H2O", parseMfOrFail("H2O"));
+	assertEqualsString("H2O", parseMfOrFail("HOH"));
+	assertEqualsString("Cl2", parseMfOrFail("Cl2"));
+	assertEqualsString("Cl2", parseMfOrFail("ClCl"));
 	assertEqualsString("H132", parseMfOrFail("H132"));
 	assertEqualsString("H132C67O3N8", parseMfOrFail("C67H132N8O3"));
 }

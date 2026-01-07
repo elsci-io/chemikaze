@@ -15,7 +15,7 @@
 //  cc -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
 //
 // Or if the newer version of Clang is installed with brew:
-//  /opt/homebrew/opt/llvm/bin/clang -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
+//  /opt/homebrew/opt/llvm/bin/clang -std=c23 -Wno-nullability-completeness -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
 
 int isNumeric(unsigned char c);
 int isBigLetter(unsigned char c);

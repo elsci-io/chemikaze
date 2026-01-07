@@ -67,7 +67,7 @@
     ChemikazeError_COULD_NOT_PARSE_MSG: .asciz "Couldn't parse "
     ChemikazeError_DOT_AND_SPACE_MSG: .asciz ". "
     ChemikazeError_PARENTH_DO_NOT_MATCH_MSG: .asciz "The opening and closing parentheses don't match."
-    ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG: .asciz "Unknown chemical symbol: %c%c"
+    ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG: .asciz "Unknown chemical symbol: %c%c" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
 
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
@@ -79,6 +79,7 @@
         .ascii "Xe\0Cs\0Ba\0La\0Ce\0Pr\0Nd\0Sm\0Eu\0Gd\0Tb\0Dy\0Ho\0Er\0Tm\0Yb\0"
         .ascii "Lu\0Hf\0Ta\0Tc\0W\0\0Re\0Os\0Ir\0Pt\0Au\0Hg\0Tl\0Pb\0Bi\0Th\0Pa\0"
         .ascii "U\0\0He\0Ne\0Ar\0"
+    .equ EARTH_SYMBOLS__CHAR_PER_ELEMENT, 3
     EARTH_SYMBOLS_LENGTHS:
         .byte 1,1,1,1,1,1,1,2,2,2,2,2,1,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,2,1,2
         .byte 2,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2
@@ -278,7 +279,7 @@ _MfParser_parseSanitized:
         stp x24, x25, [sp, 0x00]
         mov Mf, x1 ; char *mf
         mov MfEnd, x2 ; char *mfEnd
-        mov Error, x3  ; ChemikazeError* to be optionally filled
+        mov Error, x3  ; ChemikazeError*
     cmp Mf, MfEnd
         b.hs MfParser_parseSanitized__emptyMfError
     sub MfLen, MfEnd, Mf
@@ -290,6 +291,8 @@ _MfParser_parseSanitized:
         mov x3, MfParserCoeffsArray
         mov x4, Error
         bl _MfParser_readSymbolsAndCoeffs
+    ldr x0, [Error]
+    cbnz x0, MfParser_parseSanitized__nestedMethodReturnedError
     mov x0, Mf
         mov x1, MfEnd
         mov x2, MfParserCoeffsArray
@@ -364,25 +367,31 @@ MfParser_combineIntoAtomCounts__ret:
 ; @local [w9] character *i references
 ; @local [x19] const *i = mf
 _MfParser_readSymbolsAndCoeffs:
-    stp fp, lr, [sp, -16]!
+    I_          .req x19
+    Mf          .req x20
+    MfEnd       .req x21
+    ChemElement .req x22
+    Coeffs      .req x23
+    Error       .req x24
+    sub sp, sp, 0x50
+        stp fp, lr, [sp, 0x40]
         mov fp, sp
-    stp x20, x21, [sp, -16]!
-        mov x20, x0 ; char *mf
-        mov x21, x1 ; char *mfEnd
-    str x19, [sp, -16]!
-        mov x19, x0 ; char *i = mf
-    stp x22, x23, [sp, -16]!
-        mov x22, x2 ; ChemElement *elements
-        mov x23, x3 ; unsigned *coeff
-    add sp, sp, -16 ;
-
+        stp x19, x20, [sp, 0x30]
+        stp x21, x22, [sp, 0x20]
+        stp x23, x24, [sp, 0x10]
+        mov Mf, x0 ; char *mf
+        mov MfEnd, x1 ; char *mfEnd
+        mov I_, x0 ; char *i = mf
+        mov ChemElement, x2 ; ChemElement *elements
+        mov Coeffs, x3 ; unsigned *coeff
+        mov Error, x4
     adrp x6, MF_PUNCTUATION_SYMBOLS@page ; load punctuation into q1
         add x6, x6, MF_PUNCTUATION_SYMBOLS@pageoff
         ldr q1, [x6]
-MfParser_readSymbolsAndCoeffs__loop:
-    cmp x19, x21 ; if(i == mfEnd)
-        b.eq MfParser_readSymbolsAndCoeffs__out ; break
-    ldrb w9, [x19] ; load character *i references
+    MfParser_readSymbolsAndCoeffs__loop:
+        cmp I_, MfEnd ; if(i == mfEnd)
+            b.eq MfParser_readSymbolsAndCoeffs__out ; break
+        ldrb w9, [I_] ; load character *i references
         sub w9, w9, 'A' ; isBigLetter?
             cmp w9, 26
                 b.lo MfParser_readSymbolsAndCoeffs__bigLetter
@@ -395,27 +404,34 @@ MfParser_readSymbolsAndCoeffs__loop:
                 cset w6, ne
             orr w7, w7, w6
             cbnz w7, MfParser_readSymbolsAndCoeffs__digitOrPunctuation
-    b MfParser_readSymbolsAndCoeffs__loop
-MfParser_readSymbolsAndCoeffs__bigLetter:
-    str x19, [sp]
-    mov x0, x20 ; char *mf
-        mov x1, sp ; char **i
-        mov x2, x21 ; char *mfEnd
-        mov x3, x22 ; ChemElement *resultElements
-        mov x4, x23 ; unsigned *resultCoeff
-        bl _MfParser_consumeSymbolAndCoeff
-    ldr x19, [sp] ; load updates to *i that are made in consumeSymbolAndCoeff()
-    b MfParser_readSymbolsAndCoeffs__loop
-MfParser_readSymbolsAndCoeffs__digitOrPunctuation:
-    add x19, x19, 1
-    b MfParser_readSymbolsAndCoeffs__loop
-MfParser_readSymbolsAndCoeffs__out:
-    add sp, sp, 16
-    ldp x22, x23, [sp], 16
-    ldr x19, [sp], 16
-    ldp x20, x21, [sp], 16
-    ldp fp, lr, [sp], 16
-    ret
+        b MfParser_readSymbolsAndCoeffs__loop
+    MfParser_readSymbolsAndCoeffs__bigLetter:
+        str I_, [sp]
+        mov x0, Mf ; char *mf
+            mov x1, sp ; char **i
+            mov x2, MfEnd ; char *mfEnd
+            mov x3, ChemElement ; ChemElement *resultElements
+            mov x4, Coeffs ; unsigned *resultCoeff
+            mov x5, Error
+            bl _MfParser_consumeSymbolAndCoeff
+        ldr I_, [sp] ; load updates to *i that are made in consumeSymbolAndCoeff()
+        b MfParser_readSymbolsAndCoeffs__loop
+    MfParser_readSymbolsAndCoeffs__digitOrPunctuation:
+        add I_, I_, 1
+        b MfParser_readSymbolsAndCoeffs__loop
+    MfParser_readSymbolsAndCoeffs__out:
+        ldp fp, lr, [sp, 0x40]
+        ldp x19, x20, [sp, 0x30]
+        ldp x21, x22, [sp, 0x20]
+        ldp x23, x24, [sp, 0x10]
+        add sp, sp, 0x50
+        .unreq I_
+        .unreq Mf
+        .unreq MfEnd
+        .unreq ChemElement
+        .unreq Coeffs
+        .unreq Error
+        ret
 
 ; @param [x0->x20] const char *mf: start of the MF
 ; @param [x1->x21] const char **i: curr position within MF
@@ -424,8 +440,6 @@ MfParser_readSymbolsAndCoeffs__out:
 ; @param [x4->x24] unsigned *resultCoeff
 ; @param [x5->x25] ChemikazeError
 _MfParser_consumeSymbolAndCoeff:
-    symbolByte1    .req w8 ;
-    symbolByte2    .req w9 ; char *(i+1) - next element
     symbolShort    .req w10 ; 2-byte symbol, the letters go in the opposite order: lC (for Cl), \0H for H\0
     i_             .req x11 ; char *i - pointer to the current element
     Mf             .req x20
@@ -435,13 +449,16 @@ _MfParser_consumeSymbolAndCoeff:
     ResultCoeffs   .req x24
     Error          .req x25
     ResultPos      .req x26 ; size_t resultPos
-    sub sp, sp, 0x50
-        stp fp, lr, [sp, 0x40]
+    SymbolByte1    .req w27 ;
+    SymbolByte2    .req w28
+    sub sp, sp, 0x60
+        stp fp, lr, [sp, 0x50]
         mov fp, sp
-        stp x20, x21, [sp, 0x30]
-        stp x22, x23, [sp, 0x20]
-        stp x24, x25, [sp, 0x10]
-        stp x26, x27, [sp]
+        stp x20, x21, [sp, 0x40]
+        stp x22, x23, [sp, 0x30]
+        stp x24, x25, [sp, 0x20]
+        stp x26, x27, [sp, 0x10]
+        str x28, [sp]
     mov Mf, x0 ; char *mf
         mov I__, x1 ; char **i
         mov MfEnd, x2 ; char *mfEnd
@@ -450,18 +467,18 @@ _MfParser_consumeSymbolAndCoeff:
         mov Error, x5 ; ChemikazeError
     ldr i_, [I__] ; *i
     sub ResultPos, i_, Mf ; size_t resultPos = *i - mf
-    ldrb symbolByte1, [i_], 1 ; char symbol = ++(*i)
+    ldrb SymbolByte1, [i_], 1 ; char symbol = ++(*i)
     str i_, [I__] ; store the incremented *i to **i
-    ldrb symbolByte2, [i_], 1 ; load the next symbol
-    mov symbolShort, symbolByte1
-    sub w14, symbolByte2, 'a' ; if (++(*i) < mfEnd && isSmallLetter(**i))
+    ldrb SymbolByte2, [i_], 1 ; load the next symbol
+    mov symbolShort, SymbolByte1
+    sub w14, SymbolByte2, 'a' ; if (++(*i) < mfEnd && isSmallLetter(**i))
         cmp w14, 26 ; isSmallLetter(*i)
             cset w6, hi
         cmp i_, x1 ; *i < mfEnd
             cset w7, hi
         orr w7, w7, w6 ; *i >= mfEnd || !isSmallLetter(w14)
         cbnz w7, MfParser_consumeSymbolAndCoeff__skip2ndSymbol
-    bfi symbolShort, symbolByte2, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
+    bfi symbolShort, SymbolByte2, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
     str i_, [I__] ; store the incremented *i to **i
     MfParser_consumeSymbolAndCoeff__skip2ndSymbol:
         mov w0, symbolShort ;
@@ -474,30 +491,31 @@ _MfParser_consumeSymbolAndCoeff:
             bl _MfParser_consumeCoeff
         str w0, [ResultCoeffs, ResultPos, lsl 2] ; resultCoeff[resultPos] = w0
     MfParser_consumeSymbolAndCoeff__ret:
-        ldp fp, lr, [sp, 0x40]
-        ldp x20, x21, [sp, 0x30]
-        ldp x22, x23, [sp, 0x20]
-        ldp x24, x25, [sp, 0x10]
-        ldp x26, x27, [sp]
-        add sp, sp, 0x50
+        ldp fp, lr, [sp, 0x50]
+        ldp x20, x21, [sp, 0x40]
+        ldp x22, x23, [sp, 0x30]
+        ldp x24, x25, [sp, 0x20]
+        ldp x26, x27, [sp, 0x10]
+        ldr x28, [sp]
+        add sp, sp, 0x60
         ret
     MfParser_consumeSymbolAndCoeff__invalidChemElementError:
-        mov x0, 30 ; errorMsg
-            bl _malloc
-        sub sp, sp, 0x10
-        adrp x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@page
-            add x1, x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@pageoff
-            stp symbolByte1, symbolByte2, [sp]
-            bl _sprintf
-        add sp, sp, 0x10
-        mov x1, Mf
-            sub x2, MfEnd, Mf
-            bl _ChemikazeError_newParsing
+        sub sp, sp, 0x30 ; [0x10 bytes for symbol1 and symbol 2 params, 0x20 bytes for errorMsg]
+            add x0, sp, 0x10
+                adrp x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@page
+                add x1, x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@pageoff
+                stp SymbolByte1, SymbolByte2, [sp]
+                bl _sprintf
+            add x0, sp, 0x10
+                mov x1, Mf
+                sub x2, MfEnd, Mf
+                bl _ChemikazeError_newParsing
+        add sp, sp, 0x30
         str x0, [Error]
         mov x0, NULL
         b MfParser_consumeSymbolAndCoeff__ret
-        .unreq symbolByte1
-        .unreq symbolByte2
+        .unreq SymbolByte1
+        .unreq SymbolByte2
         .unreq symbolShort
         .unreq i_
         .unreq Mf
@@ -872,20 +890,23 @@ _AtomCounts_toString:
             cmp i, AtomCounts_EARTH_ELEMENT_CNT ; if i == len
                 b.ne AtomCounts_toString__str_forming_loop
     AtomCounts_toString__ret:
-    add sp, sp, 0x20
-    ldp fp, lr, [sp, -0x10]
-    ldp x20, x21, [sp, -0x20]
-    .unreq result
-    .unreq coeffLen
-    .unreq three
-    .unreq ten
-    .unreq coeff
-    .unreq i
-    .unreq strPos
-    .unreq ResultLen
-    .unreq CountsArrayRef
-    .unreq earthSymbolsLengths
-    ret
+        add sp, sp, 0x20
+        ldp fp, lr, [sp, -0x10]
+        ldp x20, x21, [sp, -0x20]
+        .unreq result
+        .unreq coeffLen
+        .unreq coeffOrder
+        .unreq three
+        .unreq earthSymbolsLengths
+        .unreq earthSymbols
+        .unreq ten
+        .unreq ten_x
+        .unreq coeff
+        .unreq i
+        .unreq strPos
+        .unreq CountsArrayRef
+        .unreq ResultLen
+        ret
 
 ; @param ChemikazeCode code
 ; @param char *msg is owned by the error itself now, so the function owning the error must call the respective destructor
@@ -965,50 +986,94 @@ _ChemikazeError_destroy:
 
 ; @param [x0] - ref to the 2-byte array
 _ptable_getElementBySymbol:
-    char1 .req w1
-    char2 .req w2
-    coeff .req w3
-    hash  .req w7
-    hashX .req x7
-    table .req x8
+    result       .req w0
+    char1        .req w1
+    char2        .req w2
+    coeff        .req w3
+    hash         .req w7
+    hashX        .req x7
+    table        .req x8
+    earthSymbols .req x9
+    symbolChar1  .req w10
+    symbolChar2  .req w11
     ldrb char1, [x0]
     ldrb char2, [x0, 1]
     mov coeff, 277
-    mul char1, char1, coeff
-    eor hash, char1, char2
+    mul hash, char1, coeff
+        eor hash, hash, char2
         and hash, hash, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
     adrp table, PTABLE_ELEMENTHASH_TO_ELEMENT@page
         add table, table, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
-    ldrb w0, [table, hashX]
-    .unreq char1
-    .unreq char2
-    .unreq coeff
-    .unreq hash
-    .unreq hashX
-    .unreq table
-    ret
+    ldrb result, [table, hashX]
+    ; now check the symbol actually corresponds to whatever was requested
+    mov w13, EARTH_SYMBOLS__CHAR_PER_ELEMENT
+    mul w13, w13, result
+    adrp earthSymbols, EARTH_SYMBOLS@page
+        add earthSymbols, earthSymbols, EARTH_SYMBOLS@pageoff
+    ldrb symbolChar1, [earthSymbols, x13]
+    add x13, x13, 1
+    ldrb symbolChar2, [earthSymbols, x13]
+    cmp symbolChar1, char1
+        ccmp symbolChar2, char2, NZCV_HI, eq
+        b.eq ptable_getElementBySymbol__out
+    mov result, INVALID_CHEM_ELEMENT
+    ptable_getElementBySymbol__out:
+;        ldrp w9, [w0]
+        .unreq result
+        .unreq char1
+        .unreq char2
+        .unreq coeff
+        .unreq hash
+        .unreq hashX
+        .unreq table
+        .unreq earthSymbols
+        .unreq symbolChar1
+        .unreq symbolChar2
+        ret
 
 ; @param short symbol, where byte#0 is the big letter, and byte#1 is the small letter or 0
 _ptable_getElementBySymbol_short:
-    char1 .req w1
-    char2 .req w2
-    coeff .req w3
-    hash  .req w7
-    hashX .req x7
-    table .req x8
+    result       .req w0
+    char1        .req w1
+    char2        .req w2
+    coeff        .req w3
+    hash         .req w7
+    hashX        .req x7
+    table        .req x8
+    earthSymbols .req x9
+    symbolChar1  .req w10
+    symbolChar2  .req w11
     and char1, w0, 0xFF
     mov coeff, 277
-    mul char1, char1, coeff
+    mul hash, char1, coeff
     ubfx char2, w0, 8, 8 ; take the 2nd byte
-    eor w5, char1, char2
+    eor w5, hash, char2
     and hash, w5, PTABLE_ELEMENTHASH_TO_ELEMENT_MASK
     adrp table, PTABLE_ELEMENTHASH_TO_ELEMENT@page
     add table, table, PTABLE_ELEMENTHASH_TO_ELEMENT@pageoff
-    ldrb w0, [table, hashX]
-    .unreq char1
-    .unreq char2
-    .unreq coeff
-    .unreq hash
-    .unreq hashX
-    .unreq table
-    ret
+    ldrb result, [table, hashX]
+    ; now check the symbol actually corresponds to whatever was requested
+    mov w13, EARTH_SYMBOLS__CHAR_PER_ELEMENT
+    mul w13, w13, result
+    adrp earthSymbols, EARTH_SYMBOLS@page
+        add earthSymbols, earthSymbols, EARTH_SYMBOLS@pageoff
+    ldrb symbolChar1, [earthSymbols, x13]
+    add x13, x13, 1
+    ldrb symbolChar2, [earthSymbols, x13]
+    cmp symbolChar1, char1
+        ccmp symbolChar2, char2, NZCV_HI, eq
+        b.eq ptable_getElementBySymbol_short__out
+    mov result, INVALID_CHEM_ELEMENT
+    ptable_getElementBySymbol_short__out:
+;        ldrp w9, [w0]
+        .unreq result
+        .unreq char1
+        .unreq char2
+        .unreq coeff
+        .unreq hash
+        .unreq hashX
+        .unreq table
+        .unreq earthSymbols
+        .unreq symbolChar1
+        .unreq symbolChar2
+        ret

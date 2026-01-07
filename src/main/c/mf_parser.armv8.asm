@@ -63,6 +63,9 @@
 
     ChemikazeError_EMPTY_MOL_MSG: .asciz "Empty Molecular Formula"
     ChemikazeError_NULL_MF_MSG: .asciz "MF is null"
+    ChemikazeError_COULD_NOT_PARSE_MSG: .asciz "Couldn't parse "
+    ChemikazeError_DOT_AND_SPACE_MSG: .asciz ". "
+    ChemikazeError_PARENTH_DO_NOT_MATCH_MSG: .asciz "The opening and closing parentheses don't match."
 
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
@@ -289,6 +292,7 @@ _MfParser_parseSanitized:
         mov x1, MfEnd
         mov x2, MfParserCoeffsArray
         bl _MfParser_findAndApplyGroupCoeffs
+    cbnz x0, MfParser_parseSanitized__nestedMethodReturnedError
     bl _AtomCounts_new
     mov x3, x0
         mov x0, MfParserElementsArray
@@ -302,12 +306,16 @@ _MfParser_parseSanitized:
         ldp x24, x25, [sp, 0x00]
         add sp, sp, 0x40
         ret
+    MfParser_parseSanitized__nestedMethodReturnedError:
+        str x0, [Error]
+        mov x0, NULL
+        b MfParser_parseSanitized__out
     MfParser_parseSanitized__emptyMfError:
         mov x0, ChemikazeErrorCode_PARSE
             adrp x1, ChemikazeError_EMPTY_MOL_MSG@page
             add x1, x1, ChemikazeError_EMPTY_MOL_MSG@pageoff
             bl _ChemikazeError_new
-        str x0, [x23] ; return ChemikazeError*
+        str x0, [Error] ; return ChemikazeError*
         mov x0, 0 ; return null
         b MfParser_parseSanitized__out
     .unreq Mf
@@ -579,12 +587,27 @@ _MfParser_findAndApplyGroupCoeffs:
             add MfCurr, MfCurr, 1
             b MfParser_findAndApplyGroupCoeffs__loop
     MfParser_findAndApplyGroupCoeffs__loopout:
+        cbnz CurrStackDepth, MfParser_findAndApplyGroupCoeffs__unmatchedParenethError
+    MfParser_findAndApplyGroupCoeffs__ret:
         ldp fp, lr, [sp, 0x30]
         ldp x20, x21, [sp, 0x20]
         ldp x22, x24, [sp, 0x10]
         ldr x25, [sp, 0x08]
         add sp, sp, 0x40
         ret
+    MfParser_findAndApplyGroupCoeffs__unmatchedParenethError:
+        adrp x0, ChemikazeError_PARENTH_DO_NOT_MATCH_MSG@page
+            add x0, x0, ChemikazeError_PARENTH_DO_NOT_MATCH_MSG@pageoff
+            mov x1, Mf
+            sub x2, MfEnd, Mf
+            bl _ChemikazeError_newParsing
+        b MfParser_findAndApplyGroupCoeffs__ret
+    .unreq Mf
+    .unreq MfEnd
+    .unreq ResultCoeffs
+    .unreq CurrStackDepth
+    .unreq MfCurr
+
 ; Scales whatever follows a number in situations like {@code 2H2O}, {@code Cl.2H}.
 ;
 ; @param [x0] mf the start of the MF string
@@ -820,11 +843,10 @@ _AtomCounts_toString:
     .unreq CountsArrayRef
     .unreq earthSymbolsLengths
     ret
-;
+
 ; @param ChemikazeCode code
 ; @param char *msg is owned by the error itself now, so the function owning the error must call the respective destructor
 ; @return ChemikazeError*
-;
 _ChemikazeError_new:
     stp fp, lr, [sp, -16]!
         mov fp, sp
@@ -841,6 +863,57 @@ _ChemikazeError_new:
     ldp x19, x20, [sp], 16
     ldp fp, lr, [sp], 16
     ret
+
+; @param [x0] const char *staticMsg
+; @param [x1] const char *mf
+; @param [x2] size_t mfLen
+_ChemikazeError_newParsing:
+    StaticMsg .req x20
+    Mf        .req x21
+    MfLen     .req x22
+    Msg       .req x23
+    msgLen    .req x0
+    sub sp, sp, 0x30
+        stp fp, lr, [sp, 0x20]
+        mov fp, sp
+        stp x20, x21, [sp, 0x10]
+        stp x22, x23, [sp]
+    mov StaticMsg, x0
+        mov Mf, x1
+        mov MfLen, x2
+    bl _strlen ; x0 still has staticMsg
+    add msgLen, x0, 50 ; msgLen is x0 too
+        add msgLen, msgLen, MfLen
+        bl _malloc
+    mov Msg, x0 ; strcpy(msg, "Couldn't parse ");
+        adrp x1, ChemikazeError_COULD_NOT_PARSE_MSG@page
+        add x1, x1, ChemikazeError_COULD_NOT_PARSE_MSG@pageoff
+        bl _strcpy
+    mov x0, Msg ; strncat(msg, mf, mfLen);
+        mov x1, Mf
+        mov x2, MfLen
+        bl _strncat
+    mov x0, Msg ; strcat(msg, ". ");
+        adrp x1, ChemikazeError_DOT_AND_SPACE_MSG@page
+        add x1, x1, ChemikazeError_DOT_AND_SPACE_MSG@pageoff
+        bl _strcat
+    mov x0, Msg ; strcat(msg, staticMsg);
+        mov x1, StaticMsg
+        bl _strcat
+    mov x0, ChemikazeErrorCode_PARSE
+        mov x1, Msg
+        bl _ChemikazeError_new
+    ldp fp, lr, [sp, 0x20]
+    ldp x20, x21, [sp, 0x10]
+    ldp x22, x23, [sp]
+    add sp, sp, 0x30
+    ret
+    .unreq StaticMsg
+    .unreq Mf
+    .unreq MfLen
+    .unreq Msg
+    .unreq msgLen
+
 _ChemikazeError_destroy:
     stp fp, lr, [sp, -0x10]!
     bl _free

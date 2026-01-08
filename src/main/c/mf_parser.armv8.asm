@@ -68,6 +68,7 @@
     ChemikazeError_DOT_AND_SPACE_MSG: .asciz ". "
     ChemikazeError_PARENTH_DO_NOT_MATCH_MSG: .asciz "The opening and closing parentheses don't match."
     ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG: .asciz "Unknown chemical symbol: %c%c" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
+    ChemikazeError_UNEXPECTED_SYMBOL_MSG: .asciz "Unexpected symbol: %c" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
 
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
@@ -367,6 +368,7 @@ MfParser_combineIntoAtomCounts__ret:
 ; @local [w9] character *i references
 ; @local [x19] const *i = mf
 _MfParser_readSymbolsAndCoeffs:
+    currChar    .req w9
     I_          .req x19
     Mf          .req x20
     MfEnd       .req x21
@@ -391,20 +393,33 @@ _MfParser_readSymbolsAndCoeffs:
     MfParser_readSymbolsAndCoeffs__loop:
         cmp I_, MfEnd ; if(i == mfEnd)
             b.eq MfParser_readSymbolsAndCoeffs__out ; break
-        ldrb w9, [I_] ; load character *i references
-        sub w9, w9, 'A' ; isBigLetter?
-            cmp w9, 26
+        ldrb currChar, [I_] ; load character *i references
+        sub w10, currChar, 'A' ; isBigLetter?
+            cmp w10, 26
                 b.lo MfParser_readSymbolsAndCoeffs__bigLetter
-        sub w9, w9, '0'
-            cmp w9, 9 ; is digit
+        sub w10, currChar, '0'
+            cmp w10, 9 ; is digit
             cset w7, ls
-            dup v0.16b, w9 ; compare the symbol with the punctuation => w6
+            dup v0.16b, currChar ; compare the symbol with the punctuation => w6
                 cmeq v0.16b, v0.16b, v1.16b
                 umaxv b0, v0.16b
-                cset w6, ne
+                cset w6, eq
             orr w7, w7, w6
             cbnz w7, MfParser_readSymbolsAndCoeffs__digitOrPunctuation
-        b MfParser_readSymbolsAndCoeffs__loop
+        sub sp, sp, 0x30
+            add x0, sp, 0x10 ; sprintf(msg, "Unexpected symbol: %c", *i);
+                mov x1, 0x20
+                adrp x2, ChemikazeError_UNEXPECTED_SYMBOL_MSG@page
+                    add x2, x2, ChemikazeError_UNEXPECTED_SYMBOL_MSG@pageoff
+                str currChar, [sp]
+                bl _snprintf
+            add x0, sp, 0x10
+                mov x1, Mf
+                sub x2, MfEnd, Mf
+                bl _ChemikazeError_newParsing
+            str x0, [Error]
+        add sp, sp, 0x30
+        b MfParser_readSymbolsAndCoeffs__out
     MfParser_readSymbolsAndCoeffs__bigLetter:
         str I_, [sp]
         mov x0, Mf ; char *mf
@@ -425,6 +440,7 @@ _MfParser_readSymbolsAndCoeffs:
         ldp x21, x22, [sp, 0x20]
         ldp x23, x24, [sp, 0x10]
         add sp, sp, 0x50
+        .unreq currChar
         .unreq I_
         .unreq Mf
         .unreq MfEnd
@@ -449,8 +465,10 @@ _MfParser_consumeSymbolAndCoeff:
     ResultCoeffs   .req x24
     Error          .req x25
     ResultPos      .req x26 ; size_t resultPos
-    SymbolByte1    .req w27 ;
+    SymbolByte1    .req w27
+    SymbolByte1_x  .req x27
     SymbolByte2    .req w28
+    SymbolByte2_x  .req x28
     sub sp, sp, 0x60
         stp fp, lr, [sp, 0x50]
         mov fp, sp
@@ -481,6 +499,7 @@ _MfParser_consumeSymbolAndCoeff:
     bfi symbolShort, SymbolByte2, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
     str i_, [I__] ; store the incremented *i to **i
     MfParser_consumeSymbolAndCoeff__skip2ndSymbol:
+        mov SymbolByte2, 0
         mov w0, symbolShort ;
             bl _ptable_getElementBySymbol_short
         cmp w0, INVALID_CHEM_ELEMENT
@@ -502,10 +521,11 @@ _MfParser_consumeSymbolAndCoeff:
     MfParser_consumeSymbolAndCoeff__invalidChemElementError:
         sub sp, sp, 0x30 ; [0x10 bytes for symbol1 and symbol 2 params, 0x20 bytes for errorMsg]
             add x0, sp, 0x10
-                adrp x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@page
-                add x1, x1, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@pageoff
-                stp SymbolByte1, SymbolByte2, [sp]
-                bl _sprintf
+                mov x1, 0x20 ; max len of the string is 32 bytes
+                adrp x2, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@page
+                add x2, x2, ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG@pageoff
+                stp SymbolByte1_x, SymbolByte2_x, [sp]
+                bl _snprintf
             add x0, sp, 0x10
                 mov x1, Mf
                 sub x2, MfEnd, Mf
@@ -515,7 +535,9 @@ _MfParser_consumeSymbolAndCoeff:
         mov x0, NULL
         b MfParser_consumeSymbolAndCoeff__ret
         .unreq SymbolByte1
+        .unreq SymbolByte1_x
         .unreq SymbolByte2
+        .unreq SymbolByte2_x
         .unreq symbolShort
         .unreq i_
         .unreq Mf

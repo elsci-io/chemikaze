@@ -188,7 +188,7 @@ _MfParser_parse:
     MfParser_parse__trimLeftLoop:
         add Mf, Mf, 1
         ldrb mfNextChar, [Mf]
-        cmp Mf, ' '
+        cmp mfNextChar, ' '
             b.eq MfParser_parse__trimLeftLoop
     mov x0, Mf ; mfEnd = Mf + strlen(Mf) - 1
         bl _strlen

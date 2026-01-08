@@ -834,10 +834,10 @@ _AtomCounts_toString:
     strPos              .req x16
     CountsArrayRef      .req x20
     ResultLen           .req x21
-    stp fp, lr, [sp, -0x10]
-        mov fp, sp
-        stp x20, x21, [sp, -0x20]
     sub sp, sp, 0x20
+        stp fp, lr, [sp, 0x10]
+        mov fp, sp
+        stp x20, x21, [sp]
 
     mov w10, 10 ; just a constant
     ldr CountsArrayRef, [x0, AtomCounts_counts] ; AtomCounts->counts (unsigned*)
@@ -916,9 +916,9 @@ _AtomCounts_toString:
             cmp i, AtomCounts_EARTH_ELEMENT_CNT ; if i == len
                 b.ne AtomCounts_toString__str_forming_loop
     AtomCounts_toString__ret:
+        ldp fp, lr, [sp, 0x10]
+        ldp x20, x21, [sp]
         add sp, sp, 0x20
-        ldp fp, lr, [sp, -0x10]
-        ldp x20, x21, [sp, -0x20]
         .unreq result
         .unreq coeffLen
         .unreq coeffOrder
@@ -938,9 +938,10 @@ _AtomCounts_toString:
 ; @param char *msg is owned by the error itself now, so the function owning the error must call the respective destructor
 ; @return ChemikazeError*
 _ChemikazeError_new:
-    stp fp, lr, [sp, -16]!
+    sub sp, sp, 0x20
+        stp fp, lr, [sp, 0x10]
         mov fp, sp
-    stp x19, x20, [sp, -16]!
+        stp x19, x20, [sp]
         mov x19, x0
         mov x20, x1
 
@@ -950,8 +951,9 @@ _ChemikazeError_new:
     str x19, [x0, ChemikazeError_code]
     str x20, [x0, ChemikazeError_msg]
 
-    ldp x19, x20, [sp], 16
-    ldp fp, lr, [sp], 16
+    ldp fp, lr, [sp, 0x10]
+    ldp x19, x20, [sp]
+    add sp, sp, 0x20
     ret
 
 ; @param [x0] const char *staticMsg
@@ -1010,8 +1012,8 @@ _ChemikazeError_destroy:
     ErrorMsg .req x21
     sub sp, sp, 0x20
         stp fp, lr, [sp, 0x10]
-        mov fp, sp
         stp x20, x21, [sp]
+        mov fp, sp
     add ErrorMsg, x0, ChemikazeError_msg
     cbz ErrorMsg, ChemikazeError_destroy__freeError
     mov x0, ErrorMsg

@@ -229,34 +229,36 @@ _MfParser_parse:
 _MfParser_parseOrPanic:
     MfParser .req x20
     Mf       .req x21
-    error    .req x2
-    sub sp, sp, 0x30
-        stp lr, fp, [sp, 0x20]
-        stp x20, x21, [sp, 0x10]
+    Error    .req x22
+    sub sp, sp, 0x40
+        stp lr, fp, [sp, 0x30]
+        stp x20, x21, [sp, 0x20]
+        stp x22, x23, [sp, 0x10]
     mov MfParser, x0
         mov Mf, x1
-    str xzr, [sp] ; error = NULL
+    str xzr, [sp] ; Error = NULL
     mov x2, sp
         bl _MfParser_parse
-        ldr error, [sp]
+        ldr Error, [sp]
     cbz x0, MfParser_parseOrPanic__error
     MfParser_parseOrPanic__ret:
-        ldp lr, fp, [sp, 0x20]
-        ldp x20, x21, [sp, 0x10]
-        add sp, sp, 0x30
+        ldp lr, fp, [sp, 0x30]
+        ldp x20, x21, [sp, 0x20]
+        ldp x22, x23, [sp, 0x10]
+        add sp, sp, 0x40
         ret
     MfParser_parseOrPanic__error:
-        ldr x0, [error, ChemikazeError_msg]
+        ldr x0, [Error, ChemikazeError_msg]
             mov x1, 2 ; stderr
             bl _puts
-        mov x0, error
+        mov x0, Error
             bl _ChemikazeError_destroy
         mov x16, 1
             mov x0, 62 ; error code
             svc 1
     .unreq MfParser
     .unreq Mf
-    .unreq error
+    .unreq Error
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
@@ -419,6 +421,7 @@ _MfParser_readSymbolsAndCoeffs:
                 bl _ChemikazeError_newParsing
             str x0, [Error]
         add sp, sp, 0x30
+        mov x0, NULL
         b MfParser_readSymbolsAndCoeffs__out
     MfParser_readSymbolsAndCoeffs__bigLetter:
         str I_, [sp]
@@ -1000,10 +1003,24 @@ _ChemikazeError_newParsing:
     .unreq Msg
     .unreq msgLen
 
+; @param [x0->x20] ChemikazeError
 _ChemikazeError_destroy:
-    stp fp, lr, [sp, -0x10]!
-    bl _free
-    add sp, sp, 0x10
+    Error    .req x20
+    ErrorMsg .req x21
+    sub sp, sp, 0x20
+        stp fp, lr, [sp, 0x10]
+        mov fp, sp
+        stp x20, x21, [sp]
+    add ErrorMsg, x0, ChemikazeError_msg
+    cbz ErrorMsg, ChemikazeError_destroy__freeError
+    mov x0, ErrorMsg
+        bl _free
+    ChemikazeError_destroy__freeError:
+        mov x0, Error
+            bl _free
+    ldp fp, lr, [sp, 0x10]
+    ldp x20, x21, [sp]
+    add sp, sp, 0x20
     ret
 
 ; @param [x0] - ref to the 2-byte array

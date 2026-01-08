@@ -247,7 +247,7 @@ AtomCounts* MfParser_parseOrPanic(MfParser *parser, const char *mf) {
 	if (error) {
 		fputs(error->msg, stderr);
 		ChemikazeError_destroy(error);
-		exit(1);
+		exit(62);
 	}
 	return atoms;
 }

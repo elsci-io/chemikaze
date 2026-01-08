@@ -704,39 +704,59 @@ _MfParser_findAndApplyGroupCoeffs:
 ; @param [x4] resultCoeff which coefficients to scale (only a specific region of MF will be scaled)
 ; @param [w5] groupCoeff the coefficient to scale the whole group of symbols
 _MfParser_scaleForward:
+    mf             .req x0
+    mfEnd          .req x1
+    lo             .req x2
+    currStackDepth .req x3
+    resultCoeffs   .req x4
+    groupCoeff     .req w5
+    stackDepth     .req x9
+    currCoeff      .req w10
+    currChar       .req w12
+    mfIdx          .req x13
     stp lr, fp, [sp, -16]!
         mov fp, sp
-    cmp w5, 1
+    cmp groupCoeff, 1
         b.eq MfParser_scaleForward__ret
     ; for (int depth = currStackDepth):
     ;  * Incremented each time we run into '('.
     ;  * Once we reach a closing ')' (depth < currentStackDepth) or the end of MF - we're out.
-    mov x9, x3
+    mov stackDepth, currStackDepth
 MfParser_scaleForward__loop:
-    cmp x2, x1
+    cmp lo, mfEnd
         cset x15, lo
-        cmp x9, x3
+        cmp stackDepth, currStackDepth
         cset x14, ge
         and x14, x14, x15
         cbz x14, MfParser_scaleForward__ret
-    ldrb w12, [x2] ; *lo
-    cmp w12, '('
-        cinc x9, x9, eq
-    cmp w12, ')'
-        sub x14, x9, 1 ; precomputed decremented x12 in x14
-        csel x9, x14, x9, eq
-    cmp w12, '.' ; if(*lo == '.' && depth == currStackDepth)
-        ccmp x9, x3, 0, eq
+    ldrb currChar, [lo] ; *lo
+    cmp currChar, '('
+        cinc stackDepth, stackDepth, eq
+    cmp currChar, ')'
+        sub x14, stackDepth, 1 ; precomputed decremented x12 in x14
+        csel stackDepth, x14, stackDepth, eq
+    cmp currChar, '.' ; if(*lo == '.' && depth == currStackDepth)
+        ccmp stackDepth, currStackDepth, 0, eq
         b.eq MfParser_scaleForward__ret
     ; Now resultCoeff[lo - mf] *= groupCoeff
-    sub x12, x2, x0 ; lo - mf
-        ldr w10, [x4, x12, lsl 2] ;
-        mul w10, w10, w5
-        str w10, [x4, x12, lsl 2]
-    add x2, x2, 1 ; lo++
+    sub mfIdx, lo, mf ; lo - mf
+        ldr currCoeff, [resultCoeffs, mfIdx, lsl 2] ;
+        mul currCoeff, currCoeff, groupCoeff
+        str currCoeff, [resultCoeffs, mfIdx, lsl 2]
+    add lo, lo, 1 ; lo++
     b MfParser_scaleForward__loop
 MfParser_scaleForward__ret:
     ldp lr, fp, [sp], 16
+    .unreq mf
+    .unreq mfEnd
+    .unreq lo
+    .unreq currStackDepth
+    .unreq resultCoeffs
+    .unreq groupCoeff
+    .unreq stackDepth
+    .unreq currCoeff
+    .unreq currChar
+    .unreq mfIdx
     ret
 
 ; Scales whatever is in the parentheses like {@code (H2O)2}.

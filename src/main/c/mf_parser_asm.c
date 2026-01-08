@@ -121,7 +121,7 @@ void testParseSanitized() {
 	printf("Testing parseSanitized():\n");
 	const char *mf = "4H2O.2(HCl4)4";
 	size_t len = strlen(mf);
-	const char *mfEnd = mf + len + 1;
+	const char *mfEnd = mf + len;
 
 	ChemikazeError *error = NULL;
 	MfParser *parser = MfParser_new();
@@ -133,11 +133,11 @@ void testParseSanitized() {
 }
 
 void testFindAndApplyGroupCoeffs() {
-	printf("Testing findAndApplyGroupCoeffs():\n");
+	puts("Testing findAndApplyGroupCoeffs():\n");
 	const char *mf = "4H2O.2(HCl4)4";
 	unsigned resultCoeff[13] = {0, 2, 0, 1, 0, 0, 0, 1, 4, 0, 0, 0, 0};
 	size_t len = strlen(mf);
-	const char *mfEnd = mf + len + 1;
+	const char *mfEnd = mf + len;
 
 	MfParser_findAndApplyGroupCoeffs(mf, mfEnd, resultCoeff);
 	assertEqualUnsigned((unsigned[13]){0, 8, 0, 4, 0, 0, 0, 8, 32}, resultCoeff, 13);
@@ -148,7 +148,7 @@ void testScaleBackward() {
 	const char *mf = "(HCl4)4";
 	unsigned resultCoeff[10] = {0, 1, 4, 0, 0, 0};
 	size_t len = strlen(mf);
-	const char *mfEnd = mf + len + 1;
+	const char *mfEnd = mf + len;
 
 	MfParser_scaleBackward(mf, mfEnd-3, 0, resultCoeff, 1); // 0 1 4 0 0 0
 	assertEqualUnsigned((unsigned[10]){0, 1, 4}, resultCoeff, 10);
@@ -160,21 +160,21 @@ void testScaleBackward() {
 void testScaleForward() {
 	const char *mf = "(HCl4)4O";
 	size_t len = strlen(mf);
-	const char *mfEnd = mf + len+1;
+	const char *mfEnd = mf + len;
 	unsigned resultCoeff[10];
 	for (unsigned i = 0; i < len; i++)
 		resultCoeff[i] = 1;
 
-	MfParser_scaleForward(mf, mfEnd+1, mf, 0, resultCoeff, 1);
+	MfParser_scaleForward(mf, mfEnd, mf, 0, resultCoeff, 1);
 	printResultCoeffs(len, resultCoeff);
 
-	MfParser_scaleForward(mf, mfEnd+1, mf, 0, resultCoeff, 5);
+	MfParser_scaleForward(mf, mfEnd, mf, 0, resultCoeff, 5);
 	printResultCoeffs(len, resultCoeff);
 
-	MfParser_scaleForward(mf, mfEnd+1, mf+1, 0, resultCoeff, 5);
+	MfParser_scaleForward(mf, mfEnd, mf+1, 0, resultCoeff, 5);
 	printResultCoeffs(len, resultCoeff);
 
-	MfParser_scaleForward(mf, mfEnd+1, mf+1, 1, resultCoeff, 5);
+	MfParser_scaleForward(mf, mfEnd, mf, 1, resultCoeff, 5);
 	printResultCoeffs(len, resultCoeff);
 }
 void testConsumeCoeff() {
@@ -232,10 +232,10 @@ int main() {
 	// testConsumeSymbolAndCoeff();
 	// testReadSymbolsAndCoeffs();
 	// testScaleForward();
-	// testScaleBackward();
-	testFindAndApplyGroupCoeffs();
+	testScaleBackward();
+	// testFindAndApplyGroupCoeffs();
 	// testCombineIntoAtomCounts();
 	// testAtomCounts_toString();
-	// testParseSanitized();
+	testParseSanitized();
 	return 0;
 }

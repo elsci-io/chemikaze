@@ -402,10 +402,11 @@ _MfParser_readSymbolsAndCoeffs:
         sub w10, currChar, '0'
             cmp w10, 9 ; is digit
             cset w7, ls
-            dup v0.16b, currChar ; compare the symbol with the punctuation => w6
-                cmeq v0.16b, v0.16b, v1.16b
-                umaxv b0, v0.16b
-                cset w6, eq
+            ; compare the symbol with the punctuation => w6
+            dup v0.16b, currChar ; duplicate our character into 16 chars in v0
+                cmeq v0.16b, v0.16b, v1.16b ; compare v0 and v1 byte-wise, set FF where equals
+                umaxv b0, v0.16b ; take max byte out of v0 and put into the first byte of v0 (b0)
+                umov w6, v0.b[0] ; put the first byte into w6
             orr w7, w7, w6
             cbnz w7, MfParser_readSymbolsAndCoeffs__digitOrPunctuation
         sub sp, sp, 0x30

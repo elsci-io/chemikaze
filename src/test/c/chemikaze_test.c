@@ -90,6 +90,9 @@ void parseMf__errsOnEmptyInput() {
 	assertEqualsString("Empty Molecular Formula", parseMfAndFail(" "));
 	assertEqualsString("MF is null", parseMfAndFail(nullptr));
 }
+void parseMf__increasesInternalMfParserBuffer_whenMfIsLongerThan20symbols() {
+	assertEqualsString("HC25", parseMfOrFail("CCCCCCCCCCCCCCCCHCCCCCCCCC"));
+}
 void atomCounts_toString() {
 	AtomCounts* ac = AtomCounts_new();
 	ac->counts[0] = 137;
@@ -128,6 +131,7 @@ int main(void) {
 	RUN_TEST(parseMf__numberAtTheBeginningMultiplesCounts);
 	RUN_TEST(parseMf__dotsSeparateComponents_butComponentsAreSummedUp);
 	RUN_TEST(parseMf__complicatedMfIsParsedIntoCounts);
+	RUN_TEST(parseMf__increasesInternalMfParserBuffer_whenMfIsLongerThan20symbols);
 	RUN_TEST(parseMf__errsIfParenthesesDoNotMatch);
 	RUN_TEST(parseMf__errsOnEmptyInput);
 	RUN_TEST(parseMf_errsIfElementNotRecognized);

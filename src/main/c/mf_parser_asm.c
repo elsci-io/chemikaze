@@ -56,16 +56,39 @@ void MfParser_scaleBackward(const char *mf, const char *hi/*inclusive*/,
 						    int currStackDepth, unsigned *resultCoeff, int groupCoeff);
 void MfParser_findAndApplyGroupCoeffs(const char *mf, const char *mfEnd/*exclusive*/, unsigned *resultCoeffs);
 AtomCounts* MfParser_combineIntoAtomCounts(const ChemElement *elements, const unsigned *coeffs, size_t len, AtomCounts *result);
+ChemikazeError* MfParser_ensureLengths(MfParser *parser, size_t mfLen);
 char* AtomCounts_toString(AtomCounts*);
 
+void printUnsignedChars(const unsigned char chars[], size_t len) {
+	for (size_t i = 0; i < len; i++)
+		printf("%c ", chars[i]);
+}
 void printUnsigned(const unsigned resultCoeff[], size_t len) {
 	for (unsigned i = 0; i < len; i++)
 		printf("%d ", resultCoeff[i]);
 }
-void assertEqualUnsigned(const unsigned expected[], const unsigned actual[], size_t len) {
+void assertEqualSize(size_t expected, size_t actual) {
+	if (expected != actual) {
+		printf(" \033[31m[ERROR] Values are not equal: %lu (expected) != %lu (actual)\033[0m\n", expected, actual);
+		exit(109);
+	}
+}
+void assertEqualU8Array(const unsigned char expected[], const unsigned char actual[], size_t len) {
 	for (size_t i = 0; i < len; i++) {
 		if (expected[i] != actual[i]) {
-			printf(" \033[31m[ERROR] Assertion failed: \n Expected: ");
+			printf(" \033[31m[ERROR] Assertion failed for unsigned char[]: \n Expected: ");
+			printUnsignedChars(expected, len);
+			printf("\n Actual:   ");
+			printUnsignedChars(actual, len);
+			printf("\033[0m\n");
+			exit(109);
+		}
+	}
+}
+void assertEqualU32Array(const unsigned expected[], const unsigned actual[], size_t len) {
+	for (size_t i = 0; i < len; i++) {
+		if (expected[i] != actual[i]) {
+			printf(" \033[31m[ERROR] Assertion failed for unsigned[]: \n Expected: ");
 			printUnsigned(expected, len);
 			printf("\n Actual:   ");
 			printUnsigned(actual, len);
@@ -98,6 +121,29 @@ void printResultElements(size_t len, ChemElement resultElements[]) {
 		printf("%d ", resultElements[i]);
 	printf("\n");
 }
+void testMfParser_ensureLengths() {
+	MfParser* p = MfParser_new();
+	assertEqualSize(20, p->len);
+	p->coeffs[0] = 1;
+	p->coeffs[19] = 2;
+	p->elements[0] = 3;
+	p->elements[19] = 4;
+
+	MfParser_ensureLengths(p, 10);
+	assertEqualSize(20, p->len);
+	assertEqualU32Array((unsigned[20]){[0]=0, [19]=2}, p->coeffs, 20);
+	assertEqualU8Array((unsigned char[20]){[0]=0, [19]=4}, p->elements, 20);
+
+	MfParser_ensureLengths(p, 20);
+	assertEqualSize(20, p->len);
+	assertEqualU32Array((unsigned[20]){0}, p->coeffs, 20);
+	assertEqualU8Array((unsigned char[20]){0}, p->elements, 20);
+
+	MfParser_ensureLengths(p, 21);
+	assertEqualSize(21, p->len);
+	assertEqualU32Array((unsigned[21]){0}, p->coeffs, 21);
+	assertEqualU8Array((unsigned char[21]){0}, p->elements, 21);
+}
 void testAtomCounts_toString() {
 	printf("Testing atomCounts_toString()\n");
 	AtomCounts *atoms = AtomCounts_new();
@@ -114,7 +160,7 @@ void testCombineIntoAtomCounts() {
 	unsigned      coeffs[6] = {2, 0, 1, 2, 1, 0};
 	AtomCounts *counts = AtomCounts_new();
 	MfParser_combineIntoAtomCounts(elements, coeffs, 6, counts);
-	assertEqualUnsigned((unsigned[EARTH_ELEMENT_CNT]){3, 0, 1, 2}, counts->counts, EARTH_ELEMENT_CNT);
+	assertEqualU32Array((unsigned[EARTH_ELEMENT_CNT]){3, 0, 1, 2}, counts->counts, EARTH_ELEMENT_CNT);
 	AtomCounts_free(counts);
 }
 void testParseSanitized() {
@@ -128,7 +174,7 @@ void testParseSanitized() {
 	AtomCounts* counts = MfParser_parseSanitized(parser, mf, mfEnd, &error);
 	printResultCoeffs(len, parser->coeffs);
 	printResultElements(len, parser->elements);
-	assertEqualUnsigned((unsigned[EARTH_ELEMENT_CNT]){[ELEMENT_H]=16, [ELEMENT_O]=4, [ELEMENT_Cl]=32},
+	assertEqualU32Array((unsigned[EARTH_ELEMENT_CNT]){[ELEMENT_H]=16, [ELEMENT_O]=4, [ELEMENT_Cl]=32},
 		counts->counts, EARTH_ELEMENT_CNT);
 }
 
@@ -140,7 +186,7 @@ void testFindAndApplyGroupCoeffs() {
 	const char *mfEnd = mf + len;
 
 	MfParser_findAndApplyGroupCoeffs(mf, mfEnd, resultCoeff);
-	assertEqualUnsigned((unsigned[13]){0, 8, 0, 4, 0, 0, 0, 8, 32}, resultCoeff, 13);
+	assertEqualU32Array((unsigned[13]){0, 8, 0, 4, 0, 0, 0, 8, 32}, resultCoeff, 13);
 }
 
 void testScaleBackward() {
@@ -151,10 +197,10 @@ void testScaleBackward() {
 	const char *mfEnd = mf + len;
 
 	MfParser_scaleBackward(mf, mfEnd-3, 0, resultCoeff, 1); // 0 1 4 0 0 0
-	assertEqualUnsigned((unsigned[10]){0, 1, 4}, resultCoeff, 10);
+	assertEqualU32Array((unsigned[10]){0, 1, 4}, resultCoeff, 10);
 
 	MfParser_scaleBackward(mf, mfEnd-4, 0, resultCoeff, 4); // 0 4 16 0 0 0
-	assertEqualUnsigned((unsigned[10]){0, 4, 16}, resultCoeff, 10);
+	assertEqualU32Array((unsigned[10]){0, 4, 16}, resultCoeff, 10);
 }
 
 void testScaleForward() {
@@ -237,5 +283,6 @@ int main() {
 	// testCombineIntoAtomCounts();
 	// testAtomCounts_toString();
 	testParseSanitized();
+	testMfParser_ensureLengths();
 	return 0;
 }

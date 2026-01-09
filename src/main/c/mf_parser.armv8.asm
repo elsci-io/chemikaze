@@ -17,7 +17,6 @@
 .global _MfParser_new
 .global _MfParser_destroy
 .global _MfParser_parse
-.global _MfParser_parseSanitized
 .global _MfParser_parseOrPanic
 .global _ptable_getElementBySymbol_short
 .global _ptable_getElementBySymbol
@@ -28,6 +27,7 @@
 .global _MfParser_scaleBackward
 .global _MfParser_findAndApplyGroupCoeffs
 .global _MfParser_combineIntoAtomCounts
+.global _MfParser_ensureLengths
 .global _AtomCounts_new
 .global _AtomCounts_free
 .global _AtomCounts_toString
@@ -267,6 +267,7 @@ _MfParser_parseOrPanic:
 ; @param [x2->x22] const char *mfEnd end of the formula, exclusive
 ; @param [x3->x23] ChemikazeError** to fill if error occurs
 ; @return x0 AtomCounts* or null. If null then check the error param.
+.global _MfParser_parseSanitized
 _MfParser_parseSanitized:
     Mf                    .req x21
     MfEnd                 .req x22
@@ -288,6 +289,10 @@ _MfParser_parseSanitized:
     sub MfLen, MfEnd, Mf
     ldr MfParserElementsArray, [x0, MfParser_elements]
     ldr MfParserCoeffsArray  , [x0, MfParser_coeffs]
+    mov x1, MfLen
+        mov x2, Error
+        bl _MfParser_ensureLengths
+         ; TODO: handle OOM from MfParser_ensureLengths
     mov x0, Mf
         mov x1, MfEnd
         mov x2, MfParserElementsArray
@@ -810,6 +815,58 @@ MfParser_reallocOrErr:
 
     ldr x19, [sp], 8
     ldp fp, lr, [sp], 16
+    ret
+
+; @param [x0] MfParser *parser
+; @param [x1] size_t mfLen
+; @param [x2] Error** for OOMs
+_MfParser_ensureLengths:
+    MfParser_          .req x20
+    MfLen              .req x21
+    mfParserLen        .req x2
+    MfParserCoeffs_    .req x22
+    MfParserElements_  .req x23
+    sub sp, sp, 0x30
+        stp fp, lr, [sp]
+        stp x20, x21, [sp, 0x10]
+        stp x22, x23, [sp, 0x20]
+        mov fp, sp
+        mov MfParser_, x0
+        mov MfLen, x1
+    ldr mfParserLen, [MfParser_, MfParser_len]
+    ldr MfParserCoeffs_, [MfParser_, MfParser_coeffs]
+    ldr MfParserElements_, [MfParser_, MfParser_elements]
+    cmp MfLen, mfParserLen ; if the existing arrays are already enough to fit the MF, then just clear them
+        b.ls MfParser_ensureLengths__clearArrays
+    mov x0, MfParserCoeffs_
+        ; x1 is already MfLen
+        bl _realloc
+        mov MfParserCoeffs_, x0
+        str x0, [MfParser_, MfParser_coeffs]
+    ldr x0, [MfParser_, MfParser_elements]
+        mov x1, MfLen
+        bl _realloc
+        mov MfParserElements_, x0
+        str x0, [MfParser_, MfParser_elements]
+    str MfLen, [MfParser_, MfParser_len]
+    MfParser_ensureLengths__clearArrays:
+        mov x0, MfParserCoeffs_
+            mov x1, 0
+            lsl x2, MfLen, 2 ; coeffs are 4 byte unsigned integers
+            bl _memset
+        mov x0, MfParserElements_
+            mov x1, 0
+            mov x2, MfLen
+            bl _memset
+    ldp fp, lr, [sp]
+    ldp x20, x21, [sp, 0x10]
+    ldp x22, x23, [sp, 0x20]
+    add sp, sp, 0x30
+    .unreq MfParser_
+    .unreq MfLen
+    .unreq MfParserCoeffs_
+    .unreq MfParserElements_
+    .unreq mfParserLen
     ret
 
 _AtomCounts_new:

@@ -5,6 +5,7 @@
 #include "error.h"
 #include "mf_parser.h"
 #include "periodic_table.h"
+#include "signals.h"
 #include "../../../../../../../../Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/stdlib.h"
 #include "../../test/c/asserts.h"
 // This implementation uses a handwritten Assembly MfParser. It's written only for Mac ARM, and there's no CMake config
@@ -14,7 +15,7 @@
 //  cc -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
 //
 // Or if the newer version of Clang is installed with brew:
-//  /opt/homebrew/opt/llvm/bin/clang -std=c23 -Wno-nullability-completeness -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
+//  /opt/homebrew/opt/llvm/bin/clang -std=c23 -Wno-nullability-completeness -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm.c signals.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o signals.o && ./mf_parser_asm
 
 int isNumeric(unsigned char c);
 int isBigLetter(unsigned char c);
@@ -274,11 +275,12 @@ void testReadSymbolsAndCoeffs() {
 }
 
 int main() {
+	register_signals();
 	// testConsumeCoeff();
 	// testConsumeSymbolAndCoeff();
 	// testReadSymbolsAndCoeffs();
 	// testScaleForward();
-	testScaleBackward();
+	// testScaleBackward();
 	// testFindAndApplyGroupCoeffs();
 	// testCombineIntoAtomCounts();
 	// testAtomCounts_toString();

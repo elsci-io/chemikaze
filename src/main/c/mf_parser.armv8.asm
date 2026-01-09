@@ -12,7 +12,7 @@
 ;     for(x9 = initial; x15 or x14; x9++)
 ; - x9 or x19 for the result in case we can't use x0
 ; - x20, x21, x22, x23, x24 are for the params if we need caller-saved registers
-
+.file "mf_parser.armv8.s"
 .global _isBigLetter
 .global _MfParser_new
 .global _MfParser_destroy
@@ -22,12 +22,10 @@
 .global _ptable_getElementBySymbol
 .global _MfParser_consumeCoeff
 .global _MfParser_consumeSymbolAndCoeff
-.global _MfParser_readSymbolsAndCoeffs
 .global _MfParser_scaleForward
 .global _MfParser_scaleBackward
 .global _MfParser_findAndApplyGroupCoeffs
 .global _MfParser_combineIntoAtomCounts
-.global _MfParser_ensureLengths
 .global _AtomCounts_new
 .global _AtomCounts_free
 .global _AtomCounts_toString
@@ -107,9 +105,10 @@
 .text
 
 _MfParser_new:
-    stp fp, lr, [sp, -16]! ; push old frame pointer and return address
+    sub sp, sp, 0x20
+    stp fp, lr, [sp] ; push old frame pointer and return address
     mov fp, sp
-    stp x19, x20, [sp, -16]! ; x19 will store the resulting pointer
+    stp x19, x20, [sp, 0x10] ; x19 will store the resulting pointer
 
     mov w0, MfParser_SIZE ; MfParser *x19 = calloc(sizeof(MfParser), 1)
         mov w1, 1
@@ -136,16 +135,18 @@ _MfParser_new:
     bl _MfParser_destroy
  _MfParser_new_out:
     mov x0, x19 ; return MfParser*
-    ldp x19, x20, [sp], 16
-    ldp fp, lr, [sp], 16; restore old frame pointer and return address
+    ldp fp, lr, [sp]; restore old frame pointer and return address
+    ldp x19, x20, [sp, 0x10]
+    add sp, sp, 0x20
  _MfParser_new_ret:
     ret
 
 _MfParser_destroy:
     cbz x0, _MfParser_destroy_ret
-    stp fp, lr, [sp, -32]! ; push old frame pointer and return address
-    mov fp, sp
-    str x19, [sp, 16] ; x19 is for MfParser*
+    sub sp, sp, 0x20
+        stp fp, lr, [sp] ; push old frame pointer and return address
+        mov fp, sp
+        str x19, [sp, 0x10] ; x19 is for MfParser*
     mov x19, x0 ; store MfParser* before invoking other methods
 ;_MfParser_destroy_free_elements:
     ldr x0, [x19, MfParser_elements]
@@ -159,8 +160,9 @@ _MfParser_destroy:
     mov x0, x19
         bl _free
  _MfParser_destroy_out:
-    ldr x19, [sp, 16] ; restore x19 register
-    ldp fp, lr, [sp], 32; restore old frame pointer and return address
+    ldp fp, lr, [sp]; restore old frame pointer and return address
+    ldr x19, [sp, 0x10] ; restore x19 register
+    add sp, sp, 0x20
  _MfParser_destroy_ret:
     ret
 
@@ -176,10 +178,10 @@ _MfParser_parse:
     Error      .req x22
     MfEnd      .req x23
     sub sp, sp, 0x30
-        stp fp, lr, [sp, 0x20]
+        stp fp, lr, [sp]
         mov fp, sp
         stp x20, x21, [sp, 0x10]
-        stp x22, x23, [sp, 0x0]
+        stp x22, x23, [sp, 0x20]
     mov MfParser, x0
         mov Mf, x1
         mov Error, x2
@@ -217,9 +219,9 @@ _MfParser_parse:
         .unreq Mf
         .unreq Error
         .unreq MfEnd
-        ldp fp, lr, [sp, 0x20]
+        ldp fp, lr, [sp]
         ldp x20, x21, [sp, 0x10]
-        ldp x22, x23, [sp]
+        ldp x22, x23, [sp, 0x20]
         add sp, sp, 0x30
         ret
 
@@ -276,11 +278,11 @@ _MfParser_parseSanitized:
     MfParserElementsArray .req x24
     MfLen                 .req x25
     sub sp, sp, 0x40
-        stp fp, lr, [sp, 0x30]
+        stp fp, lr, [sp]
         mov fp, sp
-        stp x20, x21, [sp, 0x20]
-        stp x22, x23, [sp, 0x10]
-        stp x24, x25, [sp, 0x00]
+        stp x20, x21, [sp, 0x10]
+        stp x22, x23, [sp, 0x20]
+        stp x24, x25, [sp, 0x30]
         mov Mf, x1 ; char *mf
         mov MfEnd, x2 ; char *mfEnd
         mov Error, x3  ; ChemikazeError*
@@ -313,10 +315,10 @@ _MfParser_parseSanitized:
         mov x2, MfLen
         bl _MfParser_combineIntoAtomCounts
     MfParser_parseSanitized__out:
-        ldp fp, lr, [sp, 0x30]
-        ldp x20, x21, [sp, 0x20]
-        ldp x22, x23, [sp, 0x10]
-        ldp x24, x25, [sp, 0x00]
+        ldp fp, lr, [sp]
+        ldp x20, x21, [sp, 0x10]
+        ldp x22, x23, [sp, 0x20]
+        ldp x24, x25, [sp, 0x30]
         add sp, sp, 0x40
         ret
     MfParser_parseSanitized__nestedMethodReturnedError:
@@ -374,6 +376,7 @@ MfParser_combineIntoAtomCounts__ret:
 ; @param [x4 -> x24] ChemikazeError **error
 ; @local [w9] character *i references
 ; @local [x19] const *i = mf
+.global _MfParser_readSymbolsAndCoeffs
 _MfParser_readSymbolsAndCoeffs:
     currChar    .req w9
     I_          .req x19
@@ -383,11 +386,11 @@ _MfParser_readSymbolsAndCoeffs:
     Coeffs      .req x23
     Error       .req x24
     sub sp, sp, 0x50
-        stp fp, lr, [sp, 0x40]
+        stp fp, lr, [sp]
         mov fp, sp
-        stp x19, x20, [sp, 0x30]
+        stp x19, x20, [sp, 0x10]
         stp x21, x22, [sp, 0x20]
-        stp x23, x24, [sp, 0x10]
+        stp x23, x24, [sp, 0x30]
         mov Mf, x0 ; char *mf
         mov MfEnd, x1 ; char *mfEnd
         mov I_, x0 ; char *i = mf
@@ -430,24 +433,24 @@ _MfParser_readSymbolsAndCoeffs:
         mov x0, NULL
         b MfParser_readSymbolsAndCoeffs__out
     MfParser_readSymbolsAndCoeffs__bigLetter:
-        str I_, [sp]
+        str I_, [sp, 0x40]
         mov x0, Mf ; char *mf
-            mov x1, sp ; char **i
+            add x1, sp, 0x40 ; char **i
             mov x2, MfEnd ; char *mfEnd
             mov x3, ChemElement ; ChemElement *resultElements
             mov x4, Coeffs ; unsigned *resultCoeff
             mov x5, Error
             bl _MfParser_consumeSymbolAndCoeff
-        ldr I_, [sp] ; load updates to *i that are made in consumeSymbolAndCoeff()
+        ldr I_, [sp, 0x40] ; load updates to *i that are made in consumeSymbolAndCoeff()
         b MfParser_readSymbolsAndCoeffs__loop
     MfParser_readSymbolsAndCoeffs__digitOrPunctuation:
         add I_, I_, 1
         b MfParser_readSymbolsAndCoeffs__loop
     MfParser_readSymbolsAndCoeffs__out:
-        ldp fp, lr, [sp, 0x40]
-        ldp x19, x20, [sp, 0x30]
+        ldp fp, lr, [sp]
+        ldp x19, x20, [sp, 0x10]
         ldp x21, x22, [sp, 0x20]
-        ldp x23, x24, [sp, 0x10]
+        ldp x23, x24, [sp, 0x30]
         add sp, sp, 0x50
         .unreq currChar
         .unreq I_
@@ -479,13 +482,13 @@ _MfParser_consumeSymbolAndCoeff:
     SymbolByte2    .req w28
     SymbolByte2_x  .req x28
     sub sp, sp, 0x60
-        stp fp, lr, [sp, 0x50]
+        stp fp, lr, [sp]
         mov fp, sp
-        stp x20, x21, [sp, 0x40]
-        stp x22, x23, [sp, 0x30]
-        stp x24, x25, [sp, 0x20]
-        stp x26, x27, [sp, 0x10]
-        str x28, [sp]
+        stp x20, x21, [sp, 0x10]
+        stp x22, x23, [sp, 0x20]
+        stp x24, x25, [sp, 0x30]
+        stp x26, x27, [sp, 0x40]
+        str x28, [sp, 0x50]
     mov Mf, x0 ; char *mf
         mov I__, x1 ; char **i
         mov MfEnd, x2 ; char *mfEnd
@@ -519,12 +522,12 @@ _MfParser_consumeSymbolAndCoeff:
             bl _MfParser_consumeCoeff
         str w0, [ResultCoeffs, ResultPos, lsl 2] ; resultCoeff[resultPos] = w0
     MfParser_consumeSymbolAndCoeff__ret:
-        ldp fp, lr, [sp, 0x50]
-        ldp x20, x21, [sp, 0x40]
-        ldp x22, x23, [sp, 0x30]
-        ldp x24, x25, [sp, 0x20]
-        ldp x26, x27, [sp, 0x10]
-        ldr x28, [sp]
+        ldp fp, lr, [sp]
+        ldp x20, x21, [sp, 0x10]
+        ldp x22, x23, [sp, 0x20]
+        ldp x24, x25, [sp, 0x30]
+        ldp x26, x27, [sp, 0x40]
+        ldr x28, [sp, 50]
         add sp, sp, 0x60
         ret
     MfParser_consumeSymbolAndCoeff__invalidChemElementError:
@@ -606,11 +609,11 @@ _MfParser_findAndApplyGroupCoeffs:
     CurrStackDepth .req x24
     MfCurr         .req x25
     sub sp, sp, 0x40
-        stp fp, lr, [sp, 0x30]
+        stp fp, lr, [sp]
         mov fp, sp
-        stp x20, x21, [sp, 0x20]
-        stp x22, x24, [sp, 0x10]
-        str x25, [sp, 0x08]
+        stp x20, x21, [sp, 0x10]
+        stp x22, x24, [sp, 0x20]
+        str x25, [sp, 0x30]
     mov Mf, x0 ; mf
         mov MfEnd, x1 ; mfEnd
         mov ResultCoeffs, x2 ; resultCoeffs
@@ -619,11 +622,11 @@ _MfParser_findAndApplyGroupCoeffs:
     MfParser_findAndApplyGroupCoeffs__loop:
         cmp MfCurr, MfEnd
             b.hs MfParser_findAndApplyGroupCoeffs__loopout
-        str MfCurr, [sp]
-        mov x0, sp
+        str MfCurr, [sp, 0x38]
+        add x0, sp, 0x38
             mov x1, MfEnd
             bl _MfParser_consumeCoeff
-        ldr MfCurr, [sp] ; the updated i value from consumeCoeff()
+        ldr MfCurr, [sp, 0x38] ; the updated i value from consumeCoeff()
         mov x5, x0 ; coeff
             mov x0, Mf ; mf
             mov x1, MfEnd ; mfEnd
@@ -661,11 +664,11 @@ _MfParser_findAndApplyGroupCoeffs:
                 b.ne MfParser_findAndApplyGroupCoeffs__loop_suffix
                 sub x26, MfCurr, 1 ; chunkEnd for scaleBackward()
                 add MfCurr, MfCurr, 1 ; i++
-                str MfCurr, [sp] ; consumeCoeff(**i, mfEnd)
-                    mov x0, sp
+                str MfCurr, [sp, 0x38] ; consumeCoeff(**i, mfEnd)
+                    add x0, sp, 0x38
                     mov x1, MfEnd
                     bl _MfParser_consumeCoeff
-                    ldr MfCurr, [sp]
+                    ldr MfCurr, [sp, 0x38]
                 mov x4, x0 ; groupCoeff from previous consumeCoeff()
                     mov x0, Mf ; mf
                     mov x1, x26 ; chunkEnd aka hi
@@ -681,10 +684,10 @@ _MfParser_findAndApplyGroupCoeffs:
         cbnz CurrStackDepth, MfParser_findAndApplyGroupCoeffs__unmatchedParenethError
         mov x0, NULL ; returning no error
     MfParser_findAndApplyGroupCoeffs__ret:
-        ldp fp, lr, [sp, 0x30]
-        ldp x20, x21, [sp, 0x20]
-        ldp x22, x24, [sp, 0x10]
-        ldr x25, [sp, 0x08]
+        ldp fp, lr, [sp]
+        ldp x20, x21, [sp, 0x10]
+        ldp x22, x24, [sp, 0x20]
+        ldr x25, [sp, 0x30]
         add sp, sp, 0x40
         ret
     MfParser_findAndApplyGroupCoeffs__unmatchedParenethError:
@@ -820,6 +823,7 @@ MfParser_reallocOrErr:
 ; @param [x0] MfParser *parser
 ; @param [x1] size_t mfLen
 ; @param [x2] Error** for OOMs
+.global _MfParser_ensureLengths
 _MfParser_ensureLengths:
     MfParser_          .req x20
     MfLen              .req x21
@@ -912,9 +916,9 @@ _AtomCounts_toString:
     CountsArrayRef      .req x20
     ResultLen           .req x21
     sub sp, sp, 0x20
-        stp fp, lr, [sp, 0x10]
+        stp fp, lr, [sp]
         mov fp, sp
-        stp x20, x21, [sp]
+        stp x20, x21, [sp, 0x10]
 
     mov w10, 10 ; just a constant
     ldr CountsArrayRef, [x0, AtomCounts_counts] ; AtomCounts->counts (unsigned*)
@@ -993,8 +997,8 @@ _AtomCounts_toString:
             cmp i, AtomCounts_EARTH_ELEMENT_CNT ; if i == len
                 b.ne AtomCounts_toString__str_forming_loop
     AtomCounts_toString__ret:
-        ldp fp, lr, [sp, 0x10]
-        ldp x20, x21, [sp]
+        ldp fp, lr, [sp]
+        ldp x20, x21, [sp, 0x10]
         add sp, sp, 0x20
         .unreq result
         .unreq coeffLen
@@ -1016,9 +1020,9 @@ _AtomCounts_toString:
 ; @return ChemikazeError*
 _ChemikazeError_new:
     sub sp, sp, 0x20
-        stp fp, lr, [sp, 0x10]
+        stp fp, lr, [sp]
         mov fp, sp
-        stp x19, x20, [sp]
+        stp x19, x20, [sp, 0x10]
         mov x19, x0
         mov x20, x1
 
@@ -1028,14 +1032,15 @@ _ChemikazeError_new:
     str x19, [x0, ChemikazeError_code]
     str x20, [x0, ChemikazeError_msg]
 
-    ldp fp, lr, [sp, 0x10]
-    ldp x19, x20, [sp]
+    ldp fp, lr, [sp]
+    ldp x19, x20, [sp, 0x10]
     add sp, sp, 0x20
     ret
 
 ; @param [x0] const char *staticMsg
 ; @param [x1] const char *mf
 ; @param [x2] size_t mfLen
+.global _ChemikazeError_newParsing
 _ChemikazeError_newParsing:
     StaticMsg .req x20
     Mf        .req x21
@@ -1043,10 +1048,10 @@ _ChemikazeError_newParsing:
     Msg       .req x23
     msgLen    .req x0
     sub sp, sp, 0x30
-        stp fp, lr, [sp, 0x20]
+        stp fp, lr, [sp]
         mov fp, sp
         stp x20, x21, [sp, 0x10]
-        stp x22, x23, [sp]
+        stp x22, x23, [sp, 0x20]
     mov StaticMsg, x0
         mov Mf, x1
         mov MfLen, x2
@@ -1072,9 +1077,9 @@ _ChemikazeError_newParsing:
     mov x0, ChemikazeErrorCode_PARSE
         mov x1, Msg
         bl _ChemikazeError_new
-    ldp fp, lr, [sp, 0x20]
+    ldp fp, lr, [sp]
     ldp x20, x21, [sp, 0x10]
-    ldp x22, x23, [sp]
+    ldp x22, x23, [sp, 0x20]
     add sp, sp, 0x30
     ret
     .unreq StaticMsg
@@ -1088,8 +1093,8 @@ _ChemikazeError_destroy:
     Error    .req x20
     ErrorMsg .req x21
     sub sp, sp, 0x20
-        stp fp, lr, [sp, 0x10]
-        stp x20, x21, [sp]
+        stp fp, lr, [sp]
+        stp x20, x21, [sp, 0x10]
         mov fp, sp
     add ErrorMsg, x0, ChemikazeError_msg
     cbz ErrorMsg, ChemikazeError_destroy__freeError
@@ -1098,8 +1103,8 @@ _ChemikazeError_destroy:
     ChemikazeError_destroy__freeError:
         mov x0, Error
             bl _free
-    ldp fp, lr, [sp, 0x10]
-    ldp x20, x21, [sp]
+    ldp fp, lr, [sp]
+    ldp x20, x21, [sp, 0x10]
     add sp, sp, 0x20
     ret
 

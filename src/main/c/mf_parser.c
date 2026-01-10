@@ -44,7 +44,7 @@ ChemikazeError* reallocOrErr(void **oldPointer, size_t newLen) {
 	void *newPointer = realloc(*oldPointer, newLen);
 	if (newPointer == NULL) {
 		// free(*oldPointer);
-		return ChemikazeError_new(OOM, nullptr);
+		return ChemikazeError_new(ChemikazeErrorCode_OOM, nullptr);
 	}
 	*oldPointer = newPointer;
 	return nullptr;
@@ -205,7 +205,7 @@ AtomCounts* combineIntoAtomCounts(const ChemElement *elements, const unsigned *c
 
 AtomCounts* MfParser_parse(MfParser *parser, const char *mf, ChemikazeError **error) {
 	if (mf == nullptr) {
-		*error = ChemikazeError_new(NULL_POINTER, Chemikaze_toString("MF is null"));
+		*error = ChemikazeError_new(ChemikazeErrorCode_NPE, Chemikaze_toString("MF is null"));
 		return nullptr;
 	}
 	while (*mf == ' ')
@@ -219,7 +219,7 @@ AtomCounts* MfParser_parse(MfParser *parser, const char *mf, ChemikazeError **er
 AtomCounts* MfParser_parseSanitized(MfParser *parser, const char *mf, const char *mfEnd, ChemikazeError **error) {
 	AtomCounts *result = nullptr;
 	if (mf >= mfEnd) {
-		*error = ChemikazeError_new(PARSE, Chemikaze_toString("Empty Molecular Formula"));
+		*error = ChemikazeError_new(ChemikazeErrorCode_PARSE, Chemikaze_toString("Empty Molecular Formula"));
 		return nullptr;
 	}
 	size_t mfLen = mfEnd - mf;
@@ -232,7 +232,7 @@ AtomCounts* MfParser_parseSanitized(MfParser *parser, const char *mf, const char
 	if ((*error = findAndApplyGroupCoeffs(mf, mfEnd, parser->coeffs)))
 		goto free;
 	if ((result = AtomCounts_new()) == nullptr) {
-		*error = ChemikazeError_new(OOM, nullptr);
+		*error = ChemikazeError_new(ChemikazeErrorCode_OOM, nullptr);
 		goto free;
 	}
 	combineIntoAtomCounts(parser->elements, parser->coeffs, mfLen, result);

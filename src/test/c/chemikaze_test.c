@@ -30,6 +30,7 @@ char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't
 		logError("In case of error, AtomCounts must be NULL");
 		exit(1);
 	}
+	ChemikazeError_log(error);
 	AtomCounts_free(atoms);
 	MfParser_destroy(parser);
 	return error->msg;

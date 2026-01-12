@@ -3,11 +3,11 @@
 #include "xterm.h"
 
 void logSuccess(char* str) {
-	printf("%s[INFO] %s%s\n", GREEN, str, RESET);
+	fprintf(stderr, "%s[INFO] %s%s\n", GREEN, str, RESET);
 }
 void logError(char* str) {
-	printf("%s[ERROR] %s%s\n", RED, str, RESET);
+	fprintf(stderr, "%s[ERROR] %s%s\n", RED, str, RESET);
 }
 void logNorm(char* str) {
-	printf("[INFO] %s\n", str);
+	fprintf(stderr, "[INFO] %s\n", str);
 }

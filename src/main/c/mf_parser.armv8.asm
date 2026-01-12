@@ -362,24 +362,40 @@ _MfParser_parseSanitized:
 ; @local [w14] coeffs[i]
 ; @local [w13] elements[i]
 _MfParser_combineIntoAtomCounts:
-    cmp x2, 0
+    elements    .req x0
+    coeffs      .req x1
+    i           .req x2
+    atomCounts  .req x3
+    count       .req w12
+    element     .req w13
+    elementX    .req x13
+    coeff       .req w14
+    countsArray .req x15
+    cmp i, 0
         b.eq MfParser_combineIntoAtomCounts__ret
-    sub x2, x2, 1
-    add x15, x3, AtomCounts_counts ; (unsigned*)result->counts
-    ldr x15, [x15] ; actual array result->counts
+    sub i, i, 1
+    ldr countsArray, [atomCounts, AtomCounts_counts] ; actual array result->counts
     MfParser_combineIntoAtomCounts__loop:
-        ldr w14, [x1, x2, lsl 2] ; coeffs[i]
-            cbz w14, MfParser_combineIntoAtomCounts__loop_continue
-        ldrb w13, [x0, x2] ; elements[i]
-        ldr w12, [x15, x13, lsl 2]; result->counts[elements[i]]
-            add w12, w12, w14 ; result->counts[elements[i]] + coeffs[i]
-            str w12, [x15, x13, lsl 2]; result->counts[elements[i]] += coeffs[i]
+        ldr coeff, [coeffs, i, lsl 2] ; coeffs[i]
+            cbz coeff, MfParser_combineIntoAtomCounts__loop_continue
+        ldrb element, [elements, i] ; elements[i]
+        ldr count, [countsArray, elementX, lsl 2]; result->counts[elements[i]]
+            add count, count, coeff ; result->counts[elements[i]] + coeffs[i]
+            str count, [countsArray, elementX, lsl 2]; result->counts[elements[i]] += coeffs[i]
         MfParser_combineIntoAtomCounts__loop_continue:
-        subs x2, x2, 1
+        subs i, i, 1
         b.lo MfParser_combineIntoAtomCounts__ret ; when we reached -1, it means we iterated over every element
         b MfParser_combineIntoAtomCounts__loop
 MfParser_combineIntoAtomCounts__ret:
-    mov x0, x3
+    mov x0, atomCounts
+    .unreq elements
+    .unreq coeffs
+    .unreq i
+    .unreq atomCounts
+    .unreq count
+    .unreq element
+    .unreq coeff
+    .unreq countsArray
     ret
 
 ; @param [x0 -> x20] const char *mf - start of the MF

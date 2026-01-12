@@ -35,6 +35,9 @@
     .equ NZCV_EQ, 0b0100
     .equ NZCV_HI, 0b0010
 
+    .equ stdout, 1
+    .equ stderr, 2
+
     .equ INVALID_CHEM_ELEMENT, 255
     ; struct MfParser field offsets and so on:
     .equ MfParser_elements, 0
@@ -45,9 +48,19 @@
 
     .equ NULL, 0
     ; enum ChemikazeErrorCode:
-    .equ ChemikazeErrorCode_PARSE, 0
-    .equ ChemikazeErrorCode_OOM, 1
-    .equ ChemikazeErrorCode_NULL_POINTER, 2
+    .equ ChemikazeErrorCode_UNKNOWN, 0
+    .equ ChemikazeErrorCode_PARSE, 1
+    .equ ChemikazeErrorCode_OOM, 2
+    .equ ChemikazeErrorCode_NPE, 3
+    .equ ChemikazeErrorCode_SIZE, 4
+
+    ChemikazeErrorCode__logMsg__errorPrefix: .asciz "[ERROR] "
+    ChemikazeErrorCode__logMsg__semicolon: .asciz ": "
+    ChemikazeErrorCode__logMsg__UNKNOWN: .asciz "UNKNOWN ERROR"
+    ChemikazeErrorCode__logMsg__PARSE: .asciz "PARSE_ERROR"
+    ChemikazeErrorCode__logMsg__OOM: .asciz "OOM"
+    ChemikazeErrorCode__logMsg__NPE: .asciz "NPE"
+    ChemikazeErrorCode__logMsg__NEW_LINE: .asciz "\n"
 
     ; struct ChemikazeError field offsets:
     .equ ChemikazeError_msg, 0 ; char *msg
@@ -207,7 +220,7 @@ _MfParser_parse:
         bl _MfParser_parseSanitized
         b MfParser_parse__ret
     MfParser_parse__mfNullPointerError:
-        mov x0, ChemikazeErrorCode_NULL_POINTER
+        mov x0, ChemikazeErrorCode_NPE
             adrp x1, ChemikazeError_NULL_MF_MSG@page
             add x1, x1, ChemikazeError_NULL_MF_MSG@pageoff
             bl _ChemikazeError_new
@@ -251,7 +264,7 @@ _MfParser_parseOrPanic:
         ret
     MfParser_parseOrPanic__error:
         ldr x0, [Error, ChemikazeError_msg]
-            mov x1, 2 ; stderr
+            mov x1, stderr
             bl _puts
         mov x0, Error
             bl _ChemikazeError_destroy
@@ -1087,6 +1100,92 @@ _ChemikazeError_newParsing:
     .unreq MfLen
     .unreq Msg
     .unreq msgLen
+
+; @param [x0] ChemikazeError*
+.global _ChemikazeError_log
+_ChemikazeError_log:
+    errorCode      .req x1
+    Error          .req x20
+    ErrorMsgPrefix .req x21
+    Error_msg      .req x21 ; need it after ErrorMsgPrefix isn't needed, so reusing the register
+    StdErr         .req x22
+    sub sp, sp, 0x30
+        stp fp, lr, [sp]
+        mov fp, sp
+        stp x20, x21, [sp, 0x10]
+        stp x22, x23, [sp, 0x20]
+    mov Error, x0
+    ldr errorCode, [x0, ChemikazeError_code]
+    cbz errorCode, ChemikazeError_log__unknown
+    cmp errorCode, ChemikazeErrorCode_SIZE
+        b.hs ChemikazeError_log__unknown
+    cmp errorCode, ChemikazeErrorCode_OOM
+        b.eq ChemikazeError_log__oom
+    cmp errorCode, ChemikazeErrorCode_NPE
+        b.eq ChemikazeError_log__npe
+    cmp errorCode, ChemikazeErrorCode_PARSE
+        b.eq ChemikazeError_log__parse
+    ChemikazeError_log__oom:
+        adrp ErrorMsgPrefix, ChemikazeErrorCode__logMsg__OOM@page
+        add ErrorMsgPrefix, ErrorMsgPrefix, ChemikazeErrorCode__logMsg__OOM@pageoff
+        b ChemikazeError_log__print
+    ChemikazeError_log__npe:
+        adrp ErrorMsgPrefix, ChemikazeErrorCode__logMsg__NPE@page
+        add ErrorMsgPrefix, ErrorMsgPrefix, ChemikazeErrorCode__logMsg__NPE@pageoff
+        b ChemikazeError_log__print
+    ChemikazeError_log__unknown:
+        adrp ErrorMsgPrefix, ChemikazeErrorCode__logMsg__UNKNOWN@page
+        add ErrorMsgPrefix, ErrorMsgPrefix, ChemikazeErrorCode__logMsg__UNKNOWN@pageoff
+        b ChemikazeError_log__print
+    ChemikazeError_log__parse: ; the most common, so goes last and doesn't have extra 'b'
+        adrp ErrorMsgPrefix, ChemikazeErrorCode__logMsg__PARSE@page
+        add ErrorMsgPrefix, ErrorMsgPrefix, ChemikazeErrorCode__logMsg__PARSE@pageoff
+    ChemikazeError_log__print:
+        ; The address of stderr isn't known at compile-time or link-time as the stdlib is loaded dynamically
+        ; when the process starts: DYLD_INSERT_LIBRARIES=libmystdio.dylib ./your_program
+        ; Thus we must use GOT (Global Offset Table) page instead of statically-defined @page.
+        ; This takes 3 steps:
+        ;  1) Loading address to GOT entry
+        ;  2) Loading the address of the pointer (FILE**) from GOT
+        ;  3) Loading the actual pointer FILE*
+        ; In this particular case we should probably use write(fd), but left it as is as this represents the results
+        ; of my research.
+        adrp StdErr, ___stderrp@gotpage ; computing FILE*** (GOT entry ref)
+            ldr StdErr, [StdErr, ___stderrp@gotpageoff] ; loading FILE** from GOT
+            ldr StdErr, [StdErr] ; finally loading FILE*
+        adrp x0, ChemikazeErrorCode__logMsg__errorPrefix@page
+            add x0, x0, ChemikazeErrorCode__logMsg__errorPrefix@pageoff
+            mov x1, StdErr
+            bl _fputs
+        mov x0, ErrorMsgPrefix
+            mov x1, StdErr
+            bl _fputs
+        ldr Error_msg, [Error, ChemikazeError_msg]
+        cbz Error_msg, ChemikazeError_log__finalNewLine
+
+        adrp x0, ChemikazeErrorCode__logMsg__semicolon@page
+            add x0, x0, ChemikazeErrorCode__logMsg__semicolon@pageoff
+            mov x1, StdErr
+            bl _fputs
+        mov x0, Error_msg
+            mov x1, StdErr
+            bl _fputs
+    ChemikazeError_log__finalNewLine:
+        adrp x0, ChemikazeErrorCode__logMsg__NEW_LINE@page ; this definitely should've been write(), but can't mix it with fprintf due to buffering
+            add x0, x0, ChemikazeErrorCode__logMsg__NEW_LINE@pageoff
+            mov x1, StdErr
+            bl _fputs
+    ChemikazeError_log__ret:
+        ldp fp, lr, [sp]
+        ldp x20, x21, [sp, 0x10]
+        ldp x22, x23, [sp, 0x20]
+        add sp, sp, 0x30
+        ret
+        .unreq errorCode
+        .unreq Error
+        .unreq ErrorMsgPrefix
+        .unreq Error_msg
+
 
 ; @param [x0->x20] ChemikazeError
 _ChemikazeError_destroy:

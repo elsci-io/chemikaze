@@ -125,6 +125,7 @@ int main(void) {
 
 	logNorm("Testing MfParser");
 	RUN_TEST(parseMf__errsIfMfIsNull);
+	RUN_TEST(parseMf__errsOnEmptyInput);
 	RUN_TEST(parseMf__parsesSimpleMfIntoCounts);
 	RUN_TEST(parseMf__signIsIgnoredInCounts);
 	RUN_TEST(parseMf__trimsInput);
@@ -134,6 +135,5 @@ int main(void) {
 	RUN_TEST(parseMf__complicatedMfIsParsedIntoCounts);
 	RUN_TEST(parseMf__increasesInternalMfParserBuffer_whenMfIsLongerThan20symbols);
 	RUN_TEST(parseMf__errsIfParenthesesDoNotMatch);
-	RUN_TEST(parseMf__errsOnEmptyInput);
 	RUN_TEST(parseMf_errsIfElementNotRecognized);
 }

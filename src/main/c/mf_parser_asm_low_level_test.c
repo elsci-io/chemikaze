@@ -12,10 +12,10 @@
 // for it.
 //
 // To compile:
-//  cc -c mf_parser.armv8.asm mf_parser_asm.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o && ./mf_parser_asm
+//  cc -c mf_parser.armv8.asm mf_parser_asm_low_level_test.c && cc -o mf_parser_asm_low_level_test mf_parser.armv8.o mf_parser_asm_low_level_test.o && ./mf_parser_asm_low_level_test
 //
 // Or if the newer version of Clang is installed with brew:
-//  /opt/homebrew/opt/llvm/bin/clang -std=c23 -Wno-nullability-completeness -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm.c signals.c && cc -o mf_parser_asm mf_parser.armv8.o mf_parser_asm.o signals.o && ./mf_parser_asm
+//  /opt/homebrew/opt/llvm/bin/clang -std=c23 -Wno-nullability-completeness -isysroot $(xcrun --sdk macosx --show-sdk-path) -c mf_parser.armv8.asm mf_parser_asm_low_level_test.c signals.c && cc -o mf_parser_asm_low_level_test mf_parser.armv8.o mf_parser_asm_low_level_test.o signals.o && ./mf_parser_asm_low_level_test
 
 int isNumeric(unsigned char c);
 int isBigLetter(unsigned char c);
@@ -281,9 +281,9 @@ int main() {
 	// testReadSymbolsAndCoeffs();
 	// testScaleForward();
 	// testScaleBackward();
-	// testFindAndApplyGroupCoeffs();
-	// testCombineIntoAtomCounts();
-	// testAtomCounts_toString();
+	testFindAndApplyGroupCoeffs();
+	testCombineIntoAtomCounts();
+	testAtomCounts_toString();
 	testParseSanitized();
 	testMfParser_ensureLengths();
 	return 0;

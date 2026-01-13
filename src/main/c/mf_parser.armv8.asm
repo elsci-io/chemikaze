@@ -25,8 +25,6 @@
 .global _MfParser_scaleForward
 .global _MfParser_scaleBackward
 .global _MfParser_findAndApplyGroupCoeffs
-.global _MfParser_combineIntoAtomCounts
-.global _AtomCounts_new
 .global _AtomCounts_free
 .global _AtomCounts_toString
 
@@ -161,18 +159,16 @@ _MfParser_destroy:
         mov fp, sp
         str x19, [sp, 0x10] ; x19 is for MfParser*
     mov x19, x0 ; store MfParser* before invoking other methods
-;_MfParser_destroy_free_elements:
     ldr x0, [x19, MfParser_elements]
-        cbz x0, _MfParser_destroy_free_coeffs
+        cbz x0, MfParser_destroy_free_coeffs
         bl _free
- _MfParser_destroy_free_coeffs:
-    ldr x0, [x19, MfParser_coeffs]
-        cbz x0, _MfParser_destroy_free_MfParser
-        bl _free
- _MfParser_destroy_free_MfParser:
-    mov x0, x19
-        bl _free
- _MfParser_destroy_out:
+    MfParser_destroy_free_coeffs:
+        ldr x0, [x19, MfParser_coeffs]
+            cbz x0, MfParser_destroy_free_MfParser
+            bl _free
+     MfParser_destroy_free_MfParser:
+        mov x0, x19
+            bl _free
     ldp fp, lr, [sp]; restore old frame pointer and return address
     ldr x19, [sp, 0x10] ; restore x19 register
     add sp, sp, 0x20
@@ -277,37 +273,42 @@ _MfParser_parseOrPanic:
 ; Assumes you already trimmed the MF, and you're passing the right boundaries. If you didn't do this, then call
 ; a non-sanitized method.
 ;
-; @param [x0->x20] MfParser *parser
-; @param [x1->x21] const char *mf start of the molecular formula
-; @param [x2->x22] const char *mfEnd end of the formula, exclusive
-; @param [x3->x23] ChemikazeError** to fill if error occurs
+; @param [x0] MfParser *parser
+; @param [x1] const char *mf start of the molecular formula
+; @param [x2] const char *mfEnd end of the formula, exclusive
+; @param [x3] ChemikazeError** to fill if error occurs
 ; @return x0 AtomCounts* or null. If null then check the error param.
 .global _MfParser_parseSanitized
 _MfParser_parseSanitized:
+    MfParser              .req x19
+    MfParserCoeffsArray   .req x20
     Mf                    .req x21
     MfEnd                 .req x22
     Error                 .req x23
-    MfParserCoeffsArray   .req x20
     MfParserElementsArray .req x24
     MfLen                 .req x25
-    sub sp, sp, 0x40
+    sub sp, sp, 0x50
         stp fp, lr, [sp]
         mov fp, sp
         stp x20, x21, [sp, 0x10]
         stp x22, x23, [sp, 0x20]
         stp x24, x25, [sp, 0x30]
+        str x19, [sp, 0x40]
+        mov MfParser, x0
         mov Mf, x1 ; char *mf
         mov MfEnd, x2 ; char *mfEnd
         mov Error, x3  ; ChemikazeError*
     cmp Mf, MfEnd
         b.hs MfParser_parseSanitized__emptyMfError
     sub MfLen, MfEnd, Mf
-    ldr MfParserElementsArray, [x0, MfParser_elements]
-    ldr MfParserCoeffsArray  , [x0, MfParser_coeffs]
+    ; ensureLengths()
     mov x1, MfLen
         mov x2, Error
         bl _MfParser_ensureLengths
          ; TODO: handle OOM from MfParser_ensureLengths
+    ; Loading the possibly new MfParserElements after ensureLengths()
+    ldr MfParserElementsArray, [MfParser, MfParser_elements]
+    ldr MfParserCoeffsArray  , [MfParser, MfParser_coeffs]
     mov x0, Mf
         mov x1, MfEnd
         mov x2, MfParserElementsArray
@@ -332,7 +333,8 @@ _MfParser_parseSanitized:
         ldp x20, x21, [sp, 0x10]
         ldp x22, x23, [sp, 0x20]
         ldp x24, x25, [sp, 0x30]
-        add sp, sp, 0x40
+        ldr x19, [sp, 0x40]
+        add sp, sp, 0x50
         ret
     MfParser_parseSanitized__nestedMethodReturnedError:
         str x0, [Error]
@@ -361,6 +363,7 @@ _MfParser_parseSanitized:
 ; @local [w15] result->counts
 ; @local [w14] coeffs[i]
 ; @local [w13] elements[i]
+.global _MfParser_combineIntoAtomCounts
 _MfParser_combineIntoAtomCounts:
     elements    .req x0
     coeffs      .req x1
@@ -371,6 +374,8 @@ _MfParser_combineIntoAtomCounts:
     elementX    .req x13
     coeff       .req w14
     countsArray .req x15
+    stp fp, lr, [sp, -16]!
+        mov fp, sp
     cmp i, 0
         b.eq MfParser_combineIntoAtomCounts__ret
     sub i, i, 1
@@ -379,7 +384,8 @@ _MfParser_combineIntoAtomCounts:
         ldr coeff, [coeffs, i, lsl 2] ; coeffs[i]
             cbz coeff, MfParser_combineIntoAtomCounts__loop_continue
         ldrb element, [elements, i] ; elements[i]
-        ldr count, [countsArray, elementX, lsl 2]; result->counts[elements[i]]
+        ; result->counts[elements[i]] += coeffs[i]
+        ldr count, [countsArray, elementX, lsl 2]
             add count, count, coeff ; result->counts[elements[i]] + coeffs[i]
             str count, [countsArray, elementX, lsl 2]; result->counts[elements[i]] += coeffs[i]
         MfParser_combineIntoAtomCounts__loop_continue:
@@ -388,6 +394,7 @@ _MfParser_combineIntoAtomCounts:
         b MfParser_combineIntoAtomCounts__loop
 MfParser_combineIntoAtomCounts__ret:
     mov x0, atomCounts
+    ldp fp, lr, [sp], 16
     .unreq elements
     .unreq coeffs
     .unreq i
@@ -411,7 +418,7 @@ _MfParser_readSymbolsAndCoeffs:
     I_          .req x19
     Mf          .req x20
     MfEnd       .req x21
-    ChemElement .req x22
+    Elements .req x22
     Coeffs      .req x23
     Error       .req x24
     sub sp, sp, 0x50
@@ -423,7 +430,7 @@ _MfParser_readSymbolsAndCoeffs:
         mov Mf, x0 ; char *mf
         mov MfEnd, x1 ; char *mfEnd
         mov I_, x0 ; char *i = mf
-        mov ChemElement, x2 ; ChemElement *elements
+        mov Elements, x2 ; ChemElement *elements
         mov Coeffs, x3 ; unsigned *coeff
         mov Error, x4
     adrp x6, MF_PUNCTUATION_SYMBOLS@page ; load punctuation into q1
@@ -466,7 +473,7 @@ _MfParser_readSymbolsAndCoeffs:
         mov x0, Mf ; char *mf
             add x1, sp, 0x40 ; char **i
             mov x2, MfEnd ; char *mfEnd
-            mov x3, ChemElement ; ChemElement *resultElements
+            mov x3, Elements ; Elements *resultElements
             mov x4, Coeffs ; unsigned *resultCoeff
             mov x5, Error
             bl _MfParser_consumeSymbolAndCoeff
@@ -485,7 +492,7 @@ _MfParser_readSymbolsAndCoeffs:
         .unreq I_
         .unreq Mf
         .unreq MfEnd
-        .unreq ChemElement
+        .unreq Elements
         .unreq Coeffs
         .unreq Error
         ret
@@ -871,22 +878,26 @@ _MfParser_ensureLengths:
     ldr MfParserElements_, [MfParser_, MfParser_elements]
     cmp MfLen, mfParserLen ; if the existing arrays are already enough to fit the MF, then just clear them
         b.ls MfParser_ensureLengths__clearArrays
+    ; realloc(coeffs)
     mov x0, MfParserCoeffs_
-        ; x1 is already MfLen
+        lsl x1, MfLen, 2
         bl _realloc
         mov MfParserCoeffs_, x0
         str x0, [MfParser_, MfParser_coeffs]
-    ldr x0, [MfParser_, MfParser_elements]
+    ; realloc(elements)
+    mov x0, MfParserElements_
         mov x1, MfLen
         bl _realloc
         mov MfParserElements_, x0
         str x0, [MfParser_, MfParser_elements]
     str MfLen, [MfParser_, MfParser_len]
     MfParser_ensureLengths__clearArrays:
+        ; memset(coeffs, 0, mfLen * sizeof(unsigned))
         mov x0, MfParserCoeffs_
             mov x1, 0
             lsl x2, MfLen, 2 ; coeffs are 4 byte unsigned integers
             bl _memset
+        ; memset(elements, 0, mfLen)
         mov x0, MfParserElements_
             mov x1, 0
             mov x2, MfLen
@@ -902,6 +913,7 @@ _MfParser_ensureLengths:
     .unreq mfParserLen
     ret
 
+.global _AtomCounts_new
 _AtomCounts_new:
     ; Don't understand this, but if I don't persist fp & lr, malloc() hangs:
     ; https://stackoverflow.com/questions/21732487/how-to-call-malloc-in-arm64-ios-assembly

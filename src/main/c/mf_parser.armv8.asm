@@ -53,6 +53,7 @@
     .equ ChemikazeErrorCode_SIZE, 4
 
     ChemikazeErrorCode__logMsg__errorPrefix: .asciz "[ERROR] "
+    .equ ChemikazeErrorCode__logMsg__errorPrefix__len, 8
     ChemikazeErrorCode__logMsg__semicolon: .asciz ": "
     ChemikazeErrorCode__logMsg__UNKNOWN: .asciz "UNKNOWN ERROR"
     ChemikazeErrorCode__logMsg__PARSE: .asciz "PARSE_ERROR"
@@ -259,11 +260,21 @@ _MfParser_parseOrPanic:
         add sp, sp, 0x40
         ret
     MfParser_parseOrPanic__error:
+        ; Using write() here instead of puts() to document different options for stderr'ing
+        ; write(stderr, "[ERROR] ", 8)
+        mov x0, stderr
+            adrp x1, ChemikazeErrorCode__logMsg__errorPrefix@page
+            add x1, x1, ChemikazeErrorCode__logMsg__errorPrefix@pageoff
+            mov x2, ChemikazeErrorCode__logMsg__errorPrefix__len
+            bl _write
+        ; strlen(ChemikazeError->msg)
         ldr x0, [Error, ChemikazeError_msg]
-            adrp x1, ___stderrp@gotpage ; ; computing FILE*** (GOT entry ref)
-            ldr x1, [x1, ___stderrp@gotpageoff]
-            ldr x1, [x1]
-            bl _puts
+            bl _strlen
+        ; write(stderr, ChemikazeError->msg, strlen(ChemikazeError->msg))
+        mov x2, x0
+            mov x0, stderr
+            ldr x1, [Error, ChemikazeError_msg]
+            bl _write
         mov x0, Error
             bl _ChemikazeError_destroy
         mov x16, 1

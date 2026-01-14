@@ -1130,6 +1130,16 @@ _ChemikazeError_newParsing:
     .unreq msgLen
 
 ; @param [x0] ChemikazeError*
+.global _ChemikazeError_logAndDestroy
+_ChemikazeError_logAndDestroy:
+    str x20, [sp, -16]!
+        mov x20, x0
+    bl _ChemikazeError_log
+    mov x0, x20
+        bl _ChemikazeError_destroy
+    ldr x20, [sp], 16
+
+; @param [x0] ChemikazeError*
 .global _ChemikazeError_log
 _ChemikazeError_log:
     errorCode      .req x1

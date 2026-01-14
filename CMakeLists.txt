@@ -41,5 +41,6 @@ set(TEST_SRCS
 )
 
 add_executable(chemikaze ${HEADERS} ${C_SRCS} ${SRC_ROOT}/cli.c)
+add_executable(chemikaze_asm ${HEADERS} ${SRC_ROOT}/mf_parser.armv8.asm ${SRC_ROOT}/cli.c)
 add_executable(chemikaze_tests ${HEADERS} ${C_SRCS} ${TEST_SRCS})
 add_executable(chemikaze_asm_tests ${HEADERS} ${SRC_ROOT}/mf_parser.armv8.asm ${TEST_SRCS})

@@ -260,7 +260,9 @@ _MfParser_parseOrPanic:
         ret
     MfParser_parseOrPanic__error:
         ldr x0, [Error, ChemikazeError_msg]
-            mov x1, stderr
+            adrp x1, ___stderrp@gotpage ; ; computing FILE*** (GOT entry ref)
+            ldr x1, [x1, ___stderrp@gotpageoff]
+            ldr x1, [x1]
             bl _puts
         mov x0, Error
             bl _ChemikazeError_destroy

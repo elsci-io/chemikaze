@@ -8,14 +8,20 @@
 #include "../../main/c/periodic_table.h"
 #include "../../main/c/mf_parser.h"
 
-char* parseMfOrFail(const char *mf) {
-	MfParser *parser = MfParser_new();
+char* parseMfOrFail(MfParser *parser, const char *mf) {
 	AtomCounts *atoms = MfParser_parseOrPanic(parser, mf);
 	char *toMf = AtomCounts_toString(atoms);
 	AtomCounts_free(atoms);
+	return toMf;
+}
+
+char* parseSingleMfOrFail(const char *mf) {
+	MfParser *parser = MfParser_new();
+	char *toMf = parseMfOrFail(parser, mf);
 	MfParser_destroy(parser);
 	return toMf;
 }
+
 char* parseMfAndFail(const char *mf) { // leaks ChemikazeError, but there aren't many tests so let's ignore that
 	ChemikazeError *error = nullptr;
 	MfParser *parser = MfParser_new();
@@ -50,41 +56,44 @@ void parseMf__errsIfMfIsNull() {
 	assertEqualsString("MF is null", parseMfAndFail(NULL));
 }
 void parseMf__parsesSimpleMfIntoCounts() {
-	assertEqualsString("H2O", parseMfOrFail("H2O"));
-	assertEqualsString("H2O", parseMfOrFail("HOH"));
-	assertEqualsString("Cl2", parseMfOrFail("Cl2"));
-	assertEqualsString("Cl2", parseMfOrFail("ClCl"));
-	assertEqualsString("H132", parseMfOrFail("H132"));
-	assertEqualsString("H132C67O3N8", parseMfOrFail("C67H132N8O3"));
+	MfParser *parser = MfParser_new();
+	assertEqualsString("H2O", parseMfOrFail(parser, "H2O"));
+	assertEqualsString("H2O", parseMfOrFail(parser, "HOH"));
+	assertEqualsString("Cl2", parseMfOrFail(parser, "Cl2"));
+	assertEqualsString("Cl2", parseMfOrFail(parser, "ClCl"));
+	assertEqualsString("H132", parseMfOrFail(parser, "H132"));
+	assertEqualsString("H3C7NCl2", parseMfOrFail(parser, "C7H3Cl2N"));
+	assertEqualsString("H132C67O3N8", parseMfOrFail(parser, "C67H132N8O3"));
+	MfParser_destroy(parser);
 }
 void parseMf__trimsInput() {
-	assertEqualsString("H8C2", parseMfOrFail("  CH4CH4 "));
-	assertEqualsString("H5C2", parseMfOrFail("  (CH4).[CH]-  "));
+	assertEqualsString("H8C2", parseSingleMfOrFail("  CH4CH4 "));
+	assertEqualsString("H5C2", parseSingleMfOrFail("  (CH4).[CH]-  "));
 }
 void parseMf__signIsIgnoredInCounts() {
-	assertEqualsString("H8C2", parseMfOrFail("[CH4CH4]+"));
-	assertEqualsString("H8C2", parseMfOrFail("[CH4CH4]2+"));
+	assertEqualsString("H8C2", parseSingleMfOrFail("[CH4CH4]+"));
+	assertEqualsString("H8C2", parseSingleMfOrFail("[CH4CH4]2+"));
 }
 void parseMf__complicatedMfIsParsedIntoCounts() {
-	assertEqualsString("H12O6NSCl3Na3", parseMfOrFail("[(2H2O.NaCl)3S.N]2-"));
-	assertEqualsString("H12O6NSCl3Na3", parseMfOrFail(" [(2H2O.NaCl)3S.N]2- "));
+	assertEqualsString("H12O6NSCl3Na3", parseSingleMfOrFail("[(2H2O.NaCl)3S.N]2-"));
+	assertEqualsString("H12O6NSCl3Na3", parseSingleMfOrFail(" [(2H2O.NaCl)3S.N]2- "));
 }
 void parseMf__parenthesisMultiplyCounts() {
-	assertEqualsString("H8C2", parseMfOrFail("(CH4CH4)"));
-	assertEqualsString("H16C4", parseMfOrFail("(CH4CH4)2"));
-	assertEqualsString("H16C5", parseMfOrFail("C(CH4CH4)2"));
-	assertEqualsString("H4C2O4P", parseMfOrFail("(C(OH)2)2P"));
-	assertEqualsString("C2O2PS8", parseMfOrFail("(C(2S)2O)2P"));
-	assertEqualsString("H2C2O2PS4", parseMfOrFail("(C(OH))2(S(S))2P"));
+	assertEqualsString("H8C2", parseSingleMfOrFail("(CH4CH4)"));
+	assertEqualsString("H16C4", parseSingleMfOrFail("(CH4CH4)2"));
+	assertEqualsString("H16C5", parseSingleMfOrFail("C(CH4CH4)2"));
+	assertEqualsString("H4C2O4P", parseSingleMfOrFail("(C(OH)2)2P"));
+	assertEqualsString("C2O2PS8", parseSingleMfOrFail("(C(2S)2O)2P"));
+	assertEqualsString("H2C2O2PS4", parseSingleMfOrFail("(C(OH))2(S(S))2P"));
 }
 void parseMf__dotsSeparateComponents_butComponentsAreSummedUp() {
-	assertEqualsString("H9C2N", parseMfOrFail("NH3.2CH3"));
-	assertEqualsString("H6CN", parseMfOrFail("NH3.CH3"));
-	assertEqualsString("H9C2N", parseMfOrFail("2CH3.NH3"));
+	assertEqualsString("H9C2N", parseSingleMfOrFail("NH3.2CH3"));
+	assertEqualsString("H6CN", parseSingleMfOrFail("NH3.CH3"));
+	assertEqualsString("H9C2N", parseSingleMfOrFail("2CH3.NH3"));
 }
 void parseMf__numberAtTheBeginningMultiplesCounts() {
-	assertEqualsString("H4O2", parseMfOrFail("2H2O"));
-	assertEqualsString("", parseMfOrFail("0H2O"));
+	assertEqualsString("H4O2", parseSingleMfOrFail("2H2O"));
+	assertEqualsString("", parseSingleMfOrFail("0H2O"));
 }
 void parseMf__errsOnEmptyInput() {
 	assertEqualsString("Empty Molecular Formula", parseMfAndFail(""));
@@ -92,7 +101,7 @@ void parseMf__errsOnEmptyInput() {
 	assertEqualsString("MF is null", parseMfAndFail(nullptr));
 }
 void parseMf__increasesInternalMfParserBuffer_whenMfIsLongerThan20symbols() {
-	assertEqualsString("HC25", parseMfOrFail("CCCCCCCCCCCCCCCCHCCCCCCCCC"));
+	assertEqualsString("HC25", parseSingleMfOrFail("CCCCCCCCCCCCCCCCHCCCCCCCCC"));
 }
 void atomCounts_toString() {
 	AtomCounts* ac = AtomCounts_new();

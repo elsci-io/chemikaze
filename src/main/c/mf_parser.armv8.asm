@@ -547,16 +547,15 @@ _MfParser_consumeSymbolAndCoeff:
     ldr i_, [I__] ; *i
     sub ResultPos, i_, Mf ; size_t resultPos = *i - mf
     ldrb SymbolByte1, [i_], 1 ; char symbol = ++(*i)
-    str i_, [I__] ; store the incremented *i to **i
-    ldrb SymbolByte2, [i_], 1 ; load the next symbol
     mov symbolShort, SymbolByte1
-    sub w14, SymbolByte2, 'a' ; if (++(*i) < mfEnd && isSmallLetter(**i))
+    str i_, [I__] ; store the incremented *i to **i
+    cmp i_, MfEnd ; *i < mfEnd
+        b.hs MfParser_consumeSymbolAndCoeff__skip2ndSymbol
+    halt0:
+    ldrb SymbolByte2, [i_], 1 ; load the next symbol
+    sub w14, SymbolByte2, 'a' ; if (isSmallLetter(**i))
         cmp w14, 26 ; isSmallLetter(*i)
-            cset w6, hi
-        cmp i_, x1 ; *i < mfEnd
-            cset w7, hi
-        orr w7, w7, w6 ; *i >= mfEnd || !isSmallLetter(w14)
-        cbnz w7, MfParser_consumeSymbolAndCoeff__skip2ndSymbol
+            b.hs MfParser_consumeSymbolAndCoeff__skip2ndSymbol
     bfi symbolShort, SymbolByte2, 8, 8 ; load 1st byte of w13 into w10, shifted by 8
     str i_, [I__] ; store the incremented *i to **i
     MfParser_consumeSymbolAndCoeff__skip2ndSymbol:

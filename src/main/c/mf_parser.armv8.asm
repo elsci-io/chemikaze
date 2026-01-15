@@ -354,9 +354,15 @@ _MfParser_parseSanitized:
         mov x0, NULL
         b MfParser_parseSanitized__out
     MfParser_parseSanitized__emptyMfError:
-        mov x0, ChemikazeErrorCode_PARSE
-            adrp x1, ChemikazeError_EMPTY_MOL_MSG@page
-            add x1, x1, ChemikazeError_EMPTY_MOL_MSG@pageoff
+        adrp x20, ChemikazeError_EMPTY_MOL_MSG@page
+            add x20, x20, ChemikazeError_EMPTY_MOL_MSG@pageoff
+        mov x0, x20
+            bl _strlen
+            bl _malloc
+        mov x1, x20
+            bl _strcpy
+        mov x1, x0
+            mov x0, ChemikazeErrorCode_PARSE
             bl _ChemikazeError_new
         str x0, [Error] ; return ChemikazeError*
         mov x0, 0 ; return null
@@ -1144,12 +1150,18 @@ _ChemikazeError_newParsing:
 ; @param [x0] ChemikazeError*
 .global _ChemikazeError_logAndDestroy
 _ChemikazeError_logAndDestroy:
-    str x20, [sp, -16]!
+    sub sp, sp, 0x20
+        stp fp, lr, [sp]
+        mov fp, sp
+        str x20, [sp, 0x10]
         mov x20, x0
     bl _ChemikazeError_log
     mov x0, x20
         bl _ChemikazeError_destroy
-    ldr x20, [sp], 16
+    ldp fp, lr, [sp]
+    ldr x20, [sp], 0x10
+    add sp, sp, 0x20
+    ret
 
 ; @param [x0] ChemikazeError*
 .global _ChemikazeError_log
@@ -1245,7 +1257,7 @@ _ChemikazeError_destroy:
         stp fp, lr, [sp]
         stp x20, x21, [sp, 0x10]
         mov fp, sp
-    add ErrorMsg, x0, ChemikazeError_msg
+    ldr ErrorMsg, [x0, ChemikazeError_msg]
     cbz ErrorMsg, ChemikazeError_destroy__freeError
     mov x0, ErrorMsg
         bl _free

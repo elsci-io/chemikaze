@@ -76,7 +76,7 @@ size_t parseAllMfs(MfParser *parser, MfBounds *buf, size_t size, int repeats) {
 unsigned findMfBounds(char *fileStart, size_t fileSize, char **mfs, MfBounds **mfBounds) {
 	unsigned lines = 0;
 	for (size_t i = 0; i < fileSize; lines++, i++) //calculate mfcount
-		while (*(fileStart + i) != '\n' && i != fileSize)
+		while (i < fileSize && *(fileStart + i) != '\n')
 			i++;
 	// now let's go through the bytes again, fill the MF strings and their bounds:
 	*mfs = malloc(sizeof(char) * (fileSize*2/* w/ and w/o parentheses */ + lines * 4/*parentheses and 2 digits after them*/));
@@ -90,12 +90,12 @@ unsigned findMfBounds(char *fileStart, size_t fileSize, char **mfs, MfBounds **m
 	for (size_t i = 0, lineIdx = 0; i < fileSize; i++, lineIdx++) {
 		char *lineStart = fileStart + i;
 		currentBound->start = resultPos+1;
-		while (*(fileStart + i) != '\n' && i != fileSize)
+		while (i < fileSize && *(fileStart + i) != '\n')
 			i++;
 		size_t len = fileStart+i - lineStart;
 		currentBound->end = currentBound->start+len;
 		// First, write the MF as it is, including \n at the end
-		memcpy(++resultPos, lineStart, len+1);
+		memcpy(++resultPos, lineStart, len);
 		resultPos += len;
 
 		// Now repeat the same MF, but inside (...)

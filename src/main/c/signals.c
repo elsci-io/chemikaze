@@ -21,4 +21,5 @@ void signal_handler_log_stacktrace(int sig) { // There's also /lib/libSegFault.s
 void register_signals(void) {
 	signal(SIGSEGV, signal_handler_log_stacktrace);
 	signal(SIGABRT, signal_handler_log_stacktrace);
+	signal(SIGTRAP, signal_handler_log_stacktrace);
 }

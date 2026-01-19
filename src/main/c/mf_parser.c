@@ -104,7 +104,7 @@ void consumeSymbolAndCoeff(const char *mf, const char **i, const char *mfEnd/*ex
 	}
 	if ((resultElements[resultPos] = ptable_getElementBySymbol(symbol)) == INVALID_CHEM_ELEMENT) {
 		char msg[30];
-		sprintf(msg, "Unknown chemical symbol: %c%c", symbol[0], symbol[1]);
+		snprintf(msg, 30, "Unknown chemical symbol: %c%c", symbol[0], symbol[1]);
 		*error = ChemikazeError_newParsing(msg, mf, mfEnd-mf);
 		return;
 	}
@@ -122,7 +122,7 @@ void readSymbolsAndCoeffs(const char *mf, const char *mfEnd/*exclusive*/, ChemEl
 			i++;
 		else {
 			char msg[22];
-			sprintf(msg, "Unexpected symbol: %c", *i);
+			snprintf(msg, 22, "Unexpected symbol: %c", *i);
 			*error = ChemikazeError_newParsing(msg, mf, mfEnd-mf);
 			return;
 		}

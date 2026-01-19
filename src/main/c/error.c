@@ -10,7 +10,7 @@ constexpr char ChemikazeErrorCode_NAMES[ChemikazeErrorCode_SIZE][14] = {
 	[ChemikazeErrorCode_OOM] = "OOM",
 	[ChemikazeErrorCode_NPE] = "NPE"
 };
-const inline char* ChemikazeErrorCode_getLogMsg(ChemikazeErrorCode code) {
+const static char* ChemikazeErrorCode_getLogMsg(ChemikazeErrorCode code) {
 	int errorCode = code >= ChemikazeErrorCode_SIZE ? ChemikazeErrorCode_UNKNOWN : code;
 	return ChemikazeErrorCode_NAMES[errorCode];
 }

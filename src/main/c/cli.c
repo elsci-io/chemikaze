@@ -108,7 +108,7 @@ unsigned findMfBounds(char *fileStart, size_t fileSize, char **mfs, MfBounds **m
 		char coeff = lineIdx % 20; // NOLINT(*-narrowing-conversions)
 		if (coeff > 1) {
 			char coeffStr[3];
-			int coeffLen = sprintf(coeffStr, "%d", coeff);
+			int coeffLen = snprintf(coeffStr, 3,"%d", coeff);
 			strcpy(++resultPos, coeffStr);
 			resultPos += coeffLen - 1;
 		}

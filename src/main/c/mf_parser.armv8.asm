@@ -79,6 +79,8 @@
     ChemikazeError_PARENTH_DO_NOT_MATCH_MSG: .asciz "The opening and closing parentheses don't match."
     ChemikazeError_UNKNOWN_CHEM_SYMBOL_MSG: .asciz "Unknown chemical symbol: %c%c" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
     ChemikazeError_UNEXPECTED_SYMBOL_MSG: .asciz "Unexpected symbol: %c" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
+    ChemikazeError_OOM_ALLOC_COEFFS:   .asciz "Couldn't allocate memory for %lu elements in MfParser->coefficients\n" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
+    ChemikazeError_OOM_ALLOC_ELEMENTS: .asciz "Couldn't allocate memory for %lu elements in MfParser->elements\n" ; BE CAREFUL - THIS CANNOT BE LONGER AS THIS IS PUT ON STACK AND IS PASSED AS PARAM
 
     MF_PUNCTUATION_SYMBOLS: ; 7 symbols plus the duplicates to make it 16 bytes
         .byte '(', ')', '+', '-', '.', '[', ']', ']'
@@ -318,7 +320,7 @@ _MfParser_parseSanitized:
     mov x1, MfLen
         mov x2, Error
         bl _MfParser_ensureLengths
-         ; TODO: handle OOM from MfParser_ensureLengths
+    cbnz x0, MfParser_parseSanitized__nestedMethodReturnedError
     ; Loading the possibly new MfParserElements after ensureLengths()
     ldr MfParserElementsArray, [MfParser, MfParser_elements]
     ldr MfParserCoeffsArray  , [MfParser, MfParser_coeffs]
@@ -900,12 +902,14 @@ _MfParser_ensureLengths:
     mov x0, MfParserCoeffs_
         lsl x1, MfLen, 2
         bl _realloc
+        cbz x0, MfParser_ensureLengths__oomCoeffs
         mov MfParserCoeffs_, x0
         str x0, [MfParser_, MfParser_coeffs]
     ; realloc(elements)
     mov x0, MfParserElements_
         mov x1, MfLen
         bl _realloc
+        cbz x0, MfParser_ensureLengths__oomElements
         mov MfParserElements_, x0
         str x0, [MfParser_, MfParser_elements]
     str MfLen, [MfParser_, MfParser_len]
@@ -920,16 +924,37 @@ _MfParser_ensureLengths:
             mov x1, 0
             mov x2, MfLen
             bl _memset
+    mov x0, NULL
+    MfParser_ensureLengths__ret:
     ldp fp, lr, [sp]
     ldp x20, x21, [sp, 0x10]
     ldp x22, x23, [sp, 0x20]
     add sp, sp, 0x30
+    ret
+    MfParser_ensureLengths__oomCoeffs:
+        adrp x1, ChemikazeError_OOM_ALLOC_COEFFS@page
+            add x1, x1, ChemikazeError_OOM_ALLOC_COEFFS@pageoff
+        b MfParser_ensureLengths__oom
+    MfParser_ensureLengths__oomElements:
+        adrp x1, ChemikazeError_OOM_ALLOC_ELEMENTS@page
+            add x1, x1, ChemikazeError_OOM_ALLOC_ELEMENTS@pageoff
+        b MfParser_ensureLengths__oom
+    MfParser_ensureLengths__oom:
+        ; the message is set in x1 by the previous label
+        ; fprintf(stderr, "... %lu elements", MfLen)
+        str MfLen, [sp, -0x10]! ;
+            adrp x0, ___stderrp@gotpage ; computing FILE*** (GOT entry ref)
+                ldr x0, [x0, ___stderrp@gotpageoff] ; loading FILE** from GOT
+                ldr x0, [x0] ; finally loading FILE*
+            bl _fprintf
+        add sp, sp, 0x10
+        bl _ChemikazeError_newOom
+        b MfParser_ensureLengths__ret
     .unreq MfParser_
     .unreq MfLen
     .unreq MfParserCoeffs_
     .unreq MfParserElements_
     .unreq mfParserLen
-    ret
 
 .global _AtomCounts_new
 _AtomCounts_new:
@@ -1096,6 +1121,10 @@ _ChemikazeError_new:
     add sp, sp, 0x20
     ret
 
+_ChemikazeError_newOom:
+    mov x0, ChemikazeErrorCode_OOM
+        mov x1, NULL
+        b _ChemikazeError_new
 ; @param [x0] const char *staticMsg
 ; @param [x1] const char *mf
 ; @param [x2] size_t mfLen

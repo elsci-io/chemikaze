@@ -51,8 +51,13 @@ size_t parseAllMfs(MfParser *parser, MfBounds *buf, size_t size, int repeats) {
 	for (int r = 0; r < repeats; r++) {
 		for (size_t i = 0; i < size; i++) {
 			MfBounds *currMf = buf+i;
+			// Assembly implementation seems to overrun some buffer at some point - it screws up currMf
+			// fields. On the 2nd iteration (currMf->end - currMf->start) becomes HUGE for some reason.
+			// Got tired of fixing these issues. Maybe some other day.
+			// This problem disappears with the Release profile. In Debug everything is fine.
 			AtomCounts *counts = MfParser_parseSanitized(parser, currMf->start, currMf->end, &error);
 			if (counts == nullptr) {
+				fprintf(stderr, "[ERROR] Encountered an error with molecule #%lu, repeat #%d\n", i, repeats);
 				ChemikazeError_logAndDestroy(error);
 				exit(1);
 			}
@@ -78,6 +83,7 @@ unsigned findMfBounds(char *fileStart, size_t fileSize, char **mfs, MfBounds **m
 	for (size_t i = 0; i < fileSize; lines++, i++) //calculate mfcount
 		while (i < fileSize && *(fileStart + i) != '\n')
 			i++;
+	fprintf(stderr, "Number of lines: %d\n", lines);
 	// now let's go through the bytes again, fill the MF strings and their bounds:
 	*mfs = malloc(sizeof(char) * (fileSize*2/* w/ and w/o parentheses */ + lines * 4/*parentheses and 2 digits after them*/));
 	*mfBounds = malloc(2* lines * sizeof(MfBounds));

@@ -5,13 +5,11 @@
 ; - If there's an "if" (cmp), the conditional jump has indentation
 ; - If we start preping params to call a function, assigning the 1st param doesn't have extra indentation, but
 ;   other lines related to the function call - those are indented
-; Registers conventions:
-; - x9 is "i" for loops, x15 is for the out condition:
-;     for (x9 = initial; x15; x9++)
-;   and if multiple conditions:
-;     for(x9 = initial; x15 or x14; x9++)
-; - x9 or x19 for the result in case we can't use x0
-; - x20, x21, x22, x23, x24 are for the params if we need caller-saved registers
+
+; TODO: It seems to overrun some buffer when running the benchmark with Release profile  - it screws up currMf
+;       fields. On the 2nd iteration (currMf->end - currMf->start) becomes HUGE for some reason.
+;       Got tired of fixing these issues. Maybe some other day.
+;       This problem disappears with the Release profile. In Debug everything is fine.
 .file "mf_parser.armv8.s"
 .global _isBigLetter
 .global _MfParser_new

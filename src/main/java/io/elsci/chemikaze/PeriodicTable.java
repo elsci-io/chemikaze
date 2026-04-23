@@ -34,6 +34,8 @@ public final class PeriodicTable {
             "Ba", "La", "Ce", "Pr", "Nd", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta",
             "Tc", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Th", "Pa", "U", "He", "Ne", "Ar"
     };
+    final static byte[] ATOMIC_NUMBERS = new byte[]{1, 6, 8, 7, 15, 9, 16, 35, 17, 11, 3, 26, 19, 20, 12, 28, 13, 46, 21, 23, 29, 24, 25, 27, 30, 31, 32, 33, 34, 22, 14, 4, 5, 36, 37, 38, 39, 40, 41, 42, 44, 45, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 43, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 90, 91, 92, 2, 10, 18};
+
     // Keep symbols as bytes so that we don't have to turn them into String on each lookup.
     // Each symbol is 2 bytes: for 1-symbol elements like H, the 2nd byte is 0.
     private static final byte[][] EARTH_SYMBOLS_AS_BYTES = buildSymbolsAsBytes();
@@ -49,6 +51,9 @@ public final class PeriodicTable {
 
     public static String getElementSymbol(byte element) {
         return EARTH_SYMBOLS[element];
+    }
+    public static int getAtomicNumber(byte element) {
+        return ATOMIC_NUMBERS[element];
     }
 
     /**

@@ -11,7 +11,7 @@
     <properties>
         <release>9</release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <cdk.version>2.10</cdk.version>
+        <cdk.version>2.11</cdk.version>
     </properties>
     <dependencies>
         <dependency>
@@ -50,13 +50,25 @@
             <version>${cdk.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.openscience.cdk</groupId>
+            <artifactId>cdk-ctab</artifactId>
+            <version>${cdk.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openscience.cdk</groupId>
+            <artifactId>cdk-silent</artifactId>
+            <version>${cdk.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <pluginManagement>
             <plugins>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
+                    <artifactId>maven-testr-plugin</artifactId>
                     <configuration>
                         <source>9</source>
                         <target>9</target>
@@ -69,7 +81,7 @@
                     <executions>
                         <execution>
                             <goals>
-                                <goal>compile-no-fork</goal>
+                                <goal>test-no-fork</goal>
                             </goals>
                             <phase>package</phase>
                         </execution>

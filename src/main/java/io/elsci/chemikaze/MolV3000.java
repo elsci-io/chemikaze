@@ -2,7 +2,11 @@ package io.elsci.chemikaze;
 
 import java.nio.charset.StandardCharsets;
 
+/** <a href="https://www.daylight.com/meetings/mug05/Kappler/ctfile.pdf">CTFILE spec</a> */
 public class MolV3000 {
+    private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
+    private static final String COUNTS_LINE = "M  V30 COUNTS ";
+
     public static Molecule readOne(String mol) {
         if(mol == null || mol.isEmpty())
             throw new InvalidChemStructureException(mol, "Can't parse empty chemical structure");
@@ -13,6 +17,22 @@ public class MolV3000 {
             throw new InvalidChemStructureException("Can't parse empty chemical structure");
         if(mol.length < 178) // all the essential blocks like BEGIN CTAB, BEGIN ATOMS combined
             throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8), "Is not a proper MOL V3000 format");
+        int i = indexOf(mol, (byte) '\n', 0);
+        i = indexOf(mol, (byte) '\n', i)+1;
+        i = indexOf(mol, (byte) '\n', i)+1;
+        // for now skip the header too:
+        i = indexOf(mol, (byte) '\n', i+1)+1;
+        for(int j = 0; j < BEGIN_CTAB.length; j++)
+            if(BEGIN_CTAB[j] != mol[i+j])
+                throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8)
+                        , "Not a valid MOLV3000 format - didn't find BEGIN CTAB line. Instead got: " + new String(mol, i, BEGIN_CTAB.length));
         return null;
+    }
+
+    private static int indexOf(byte[] data, byte b, int startOffset) {
+        for(int i = startOffset; i < data.length; i++)
+            if(data[i] == b)
+                return i;
+        return -1;
     }
 }

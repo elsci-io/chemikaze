@@ -26,4 +26,15 @@ public class MolV3000Test {
         assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(new byte[0]));
         assertEquals("Can't parse empty chemical structure", e.getMessage());
     }
+    @Test
+    public void errsIfNoBeginCtabBlock() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace("M  V30 BEGIN CTAB", "m  V30 BEGIN CTAB")));
+        assertEquals("Not a valid MOLV3000 format - didn't find BEGIN CTAB line. Instead got: m  V30 BEGIN CTAB\n", e.getMessage());
+
+        e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace("M  V30 BEGIN CTAB", "\n")));
+        assertEquals("Not a valid MOLV3000 format - didn't find BEGIN CTAB line. Instead got: \n" +
+                "\n" +
+                "M  V30 COUNTS 1 ", e.getMessage());
+    }
 }

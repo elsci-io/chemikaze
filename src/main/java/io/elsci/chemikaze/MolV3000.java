@@ -22,11 +22,22 @@ public class MolV3000 {
         i = indexOf(mol, (byte) '\n', i)+1;
         // for now skip the header too:
         i = indexOf(mol, (byte) '\n', i+1)+1;
-        for(int j = 0; j < BEGIN_CTAB.length; j++)
-            if(BEGIN_CTAB[j] != mol[i+j])
-                throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8)
-                        , "Not a valid MOLV3000 format - didn't find BEGIN CTAB line. Instead got: " + new String(mol, i, BEGIN_CTAB.length));
+        i = assertEqual(mol, i, BEGIN_CTAB);
         return null;
+    }
+
+    private static int assertEqual(byte[] mol, int i, byte[] section) {
+        if(i + section.length >= mol.length)
+            throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8),
+                    "Not a valid MOLV3000 format - didn't find section: " + new String(section)
+                            + ". Instead the structure ended prematurely: " + new String(mol, i, mol.length - i));
+        int j = 0;// character number within the line
+        for(; j < section.length; j++)
+            if(section[j] != mol[i+j])
+                throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8)
+                        , "Not a valid MOLV3000 format - didn't find section: " + new String(section)
+                        + ". Instead got: " + new String(mol, i, section.length));
+        return i + j;
     }
 
     private static int indexOf(byte[] data, byte b, int startOffset) {

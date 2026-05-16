@@ -30,10 +30,10 @@ public class MolV3000Test {
     public void errsIfNoBeginCtabBlock() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace("M  V30 BEGIN CTAB", "m  V30 BEGIN CTAB")));
-        assertEquals("Not a valid MOLV3000 format - didn't find BEGIN CTAB line. Instead got: m  V30 BEGIN CTAB\n", e.getMessage());
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: m  V30 BEGIN CTAB\n", e.getMessage());
 
         e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace("M  V30 BEGIN CTAB", "\n")));
-        assertEquals("Not a valid MOLV3000 format - didn't find BEGIN CTAB line. Instead got: \n" +
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: \n" +
                 "\n" +
                 "M  V30 COUNTS 1 ", e.getMessage());
     }

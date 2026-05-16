@@ -5,7 +5,8 @@ import java.nio.charset.StandardCharsets;
 /** <a href="https://www.daylight.com/meetings/mug05/Kappler/ctfile.pdf">CTFILE spec</a> */
 public class MolV3000 {
     private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
-    private static final String COUNTS_LINE = "M  V30 COUNTS ";
+    private static final byte[] COUNTS_LINE = "M  V30 COUNTS ".getBytes(StandardCharsets.US_ASCII);
+    private static final byte NL = (byte) '\n';
 
     public static Molecule readOne(String mol) {
         if(mol == null || mol.isEmpty())
@@ -17,12 +18,14 @@ public class MolV3000 {
             throw new InvalidChemStructureException("Can't parse empty chemical structure");
         if(mol.length < 178) // all the essential blocks like BEGIN CTAB, BEGIN ATOMS combined
             throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8), "Is not a proper MOL V3000 format");
-        int i = indexOf(mol, (byte) '\n', 0);
-        i = indexOf(mol, (byte) '\n', i)+1;
-        i = indexOf(mol, (byte) '\n', i)+1;
+        int i = indexOf(mol, NL, 0);
+        i = indexOf(mol, NL, i)+1;
+        i = indexOf(mol, NL, i)+1;
         // for now skip the header too:
-        i = indexOf(mol, (byte) '\n', i+1)+1;
+        i = indexOf(mol, NL, i+1)+1;
         i = assertEqual(mol, i, BEGIN_CTAB);
+        i = assertEqual(mol, i, COUNTS_LINE);
+
         return null;
     }
 

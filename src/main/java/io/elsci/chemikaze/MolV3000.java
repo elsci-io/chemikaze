@@ -2,6 +2,8 @@ package io.elsci.chemikaze;
 
 import java.nio.charset.StandardCharsets;
 
+import static java.lang.Character.isDigit;
+
 /** <a href="https://www.daylight.com/meetings/mug05/Kappler/ctfile.pdf">CTFILE spec</a> */
 public class MolV3000 {
     private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
@@ -28,7 +30,18 @@ public class MolV3000 {
         int lineEnd = indexOf(mol, NL, i);
         if (lineEnd - i < 9)
             throw new InvalidChemStructureException("Not a valid MOLV3000 format - COUNTS line ended prematurely: " + new String(mol, i, lineEnd-i));
-        return null;
+
+        int atomCnt = readInt(mol, i);
+        Molecule m = new Molecule();
+        m.atoms = new byte[atomCnt];
+        return m;
+    }
+
+    private static int readInt(byte[] mol, int offset) {
+        int result = 0;
+        while(isDigit(mol[offset]))
+            result += (mol[offset++] - '0') + result*10;
+        return result;
     }
 
     private static int assertEqual(byte[] mol, int i, byte[] section) {

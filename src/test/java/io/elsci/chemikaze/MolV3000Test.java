@@ -15,6 +15,12 @@ public class MolV3000Test {
         assertMoleculesEqual(CdkUtil.fromMolV3000(mol), m);
     }
     @Test
+    public void readsAtomCntLine() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
+        Molecule m = MolV3000.readOne(mol);
+        assertEquals(1, m.getAtomCount());
+    }
+    @Test
     @SuppressWarnings("DataFlowIssue")
     public void errsIfStructureIsEmtpy() {
         Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne((String) null));

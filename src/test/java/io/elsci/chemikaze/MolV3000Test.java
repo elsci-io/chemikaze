@@ -47,4 +47,12 @@ public class MolV3000Test {
         assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 COUNTS . Instead got: \n" +
                 "1 0 0 0 0\nM  ", e.getMessage());
     }
+    @Test
+    public void errsIfCountsLineIsIncomplete() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(
+                mol.replace("M  V30 COUNTS 1 0 0 0 0", "M  V30 COUNTS 1 0 0 0 "))
+        );
+        assertEquals("Invalid structure: Not a valid MOLV3000 format - COUNTS line ended prematurely: 1 0 0 0 ", e.getMessage());
+    }
 }

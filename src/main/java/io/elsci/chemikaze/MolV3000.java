@@ -25,7 +25,9 @@ public class MolV3000 {
         i = indexOf(mol, NL, i+1)+1;
         i = assertEqual(mol, i, BEGIN_CTAB);
         i = assertEqual(mol, i, COUNTS_LINE);
-
+        int lineEnd = indexOf(mol, NL, i);
+        if (lineEnd - i < 9)
+            throw new InvalidChemStructureException("Not a valid MOLV3000 format - COUNTS line ended prematurely: " + new String(mol, i, lineEnd-i));
         return null;
     }
 

@@ -8,6 +8,7 @@ import static java.lang.Character.isDigit;
 public class MolV3000 {
     private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] COUNTS_LINE = "M  V30 COUNTS ".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] BEGIN_ATOM = "M  V30 BEGIN ATOM\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte NL = (byte) '\n';
 
     public static Molecule readOne(String mol) {
@@ -32,8 +33,11 @@ public class MolV3000 {
             throw new InvalidChemStructureException("Not a valid MOLV3000 format - COUNTS line ended prematurely: " + new String(mol, i, lineEnd-i));
 
         int atomCnt = readInt(mol, i);
+        // skipping the rest of the counts for now, will return to them later
         Molecule m = new Molecule();
         m.atoms = new byte[atomCnt];
+
+        i = assertEqual(mol, lineEnd+1, BEGIN_ATOM);
         return m;
     }
 

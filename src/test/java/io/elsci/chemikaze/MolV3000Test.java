@@ -36,12 +36,28 @@ public class MolV3000Test {
     public void errsIfNoBeginCtabBlock() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         String section = "M  V30 BEGIN CTAB\n";
-        Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, "m  V30 BEGIN CTAB")));
-        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: m  V30 BEGIN CTABM", e.getMessage());
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, "m  V30 BEGIN CTAB\n")));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: m  V30 BEGIN CTAB\n", e.getMessage());
 
         e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, "\n")));
-        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: \n" +
-                "M  V30 COUNTS 1 0", e.getMessage());
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: \nM  V30 COUNTS 1 0", e.getMessage());
+
+        e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, section.substring(0, section.length()-1))));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN CTAB\n. Instead got: M  V30 BEGIN CTABM", e.getMessage());
+    }
+    @Test
+    public void errsIfNoBeginAtomBlock() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
+        String section = "M  V30 BEGIN ATOM\n";
+
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, "m  V30 BEGIN ATOM\n")));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN ATOM\n. Instead got: m  V30 BEGIN ATOM\n", e.getMessage());
+
+        e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, "\n")));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN ATOM\n. Instead got: \nM  V30 1 C 12.225", e.getMessage());
+
+        e = assertThrows(InvalidChemStructureException.class, () -> MolV3000.readOne(mol.replace(section, section.substring(0, section.length()-1))));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN ATOM\n. Instead got: M  V30 BEGIN ATOMM", e.getMessage());
     }
     @Test
     public void errsIfNoCountsLine() {

@@ -37,16 +37,23 @@ public class MolV3000 {
         m.atoms = new byte[atomCnt];
 
         assertEqual(mol, BEGIN_ATOM);
-        i = readAtoms(mol, m);
+        readAtoms(mol, m);
         return m;
     }
 
-    private int readAtoms(byte[] mol, Molecule m) {
+    private void readAtoms(byte[] mol, Molecule m) {
         assertEqual(mol, LINE_START);
-
-        return 0;
+        int atomIdx = readInt(mol) - 1;
+        i++;
+        m.atoms[atomIdx] = readChemSymbol(mol);
+        // todo: next read other atoms
     }
 
+    private byte readChemSymbol(byte[] mol) {
+        return mol[i+1] == ' '
+                ? PeriodicTable.getElementBySymbol(mol[i++], (byte) 0)
+                : PeriodicTable.getElementBySymbol(mol[i++], mol[i++]);
+    }
     private int readInt(byte[] mol) {
         int result = 0;
         while(isDigit(mol[i]))

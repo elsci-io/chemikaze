@@ -42,11 +42,13 @@ public class MolV3000 {
     }
 
     private void readAtoms(byte[] mol, Molecule m) {
-        assertEqual(mol, LINE_START);
-        int atomIdx = readInt(mol) - 1;
-        i++;
-        m.atoms[atomIdx] = readChemSymbol(mol);
-        // todo: next read other atoms
+        for(int j = 0; j < m.getAtomCount(); j++) {
+            assertEqual(mol, LINE_START);
+            int atomIdx = readInt(mol) - 1;
+            i++;
+            m.atoms[atomIdx] = readChemSymbol(mol);
+            skipAfter(mol, NL);
+        }
     }
 
     private byte readChemSymbol(byte[] mol) {

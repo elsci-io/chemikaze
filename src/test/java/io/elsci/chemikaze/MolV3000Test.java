@@ -29,6 +29,14 @@ public class MolV3000Test {
         assertEquals(PeriodicTable.getElementBySymbol("C"), m.atoms[0]);
     }
     @Test
+    public void readsMultipleAtoms() {
+        String mol = IoUtils.getStringFromClasspath("molecules/co.ketcher.molv3000");
+        Molecule m = readMol(mol);
+        assertEquals(2, m.getAtomCount());
+        assertEquals(PeriodicTable.getElementBySymbol("O"), m.atoms[0]);
+        assertEquals(PeriodicTable.getElementBySymbol("C"), m.atoms[1]);
+    }
+    @Test
     @SuppressWarnings("DataFlowIssue")
     public void errsIfStructureIsEmtpy() {
         Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol((String) null));

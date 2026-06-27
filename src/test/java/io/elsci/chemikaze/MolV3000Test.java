@@ -37,7 +37,24 @@ public class MolV3000Test {
         assertEquals(PeriodicTable.getElementBySymbol("C"), m.atoms[1]);
     }
     @Test
-    @SuppressWarnings("DataFlowIssue")
+    public void errsWhenAtomCountLies_andIsGreaterThanActualAtomLines() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000").replace("M  V30 COUNTS 1", "M  V30 COUNTS 2");
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol));
+        assertEquals("Invalid structure: Expected a line with atom, but got: 'M  V30 END ATOM'. Is Atom Count from 2 correct? Or maybe atom position is less than 1?", e.getMessage());
+    }
+    @Test
+    public void errsWhenAtomPositionInAtomBlockIsLessThan1() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000").replace("M  V30 1 C", "M  V30 0 C");
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol));
+        assertEquals("Invalid structure: Expected a line with atom, but got: 'M  V30 0 C 12.225 -6.925 0.0 0'. Is Atom Count from 1 correct? Or maybe atom position is less than 1?", e.getMessage());
+    }
+    @Test
+    public void errsIfRunsIntoUnrecognizedAtom() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000").replace("M  V30 1 C", "M  V30 1 X");
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol));
+        assertEquals("Invalid structure: Unrecognized element: X in the line 'M  V30 1 X 12.225 -6.925 0.0 0'", e.getMessage());
+    }
+    @Test
     public void errsIfStructureIsEmtpy() {
         Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol((String) null));
         assertEquals("Can't parse empty chemical structure", e.getMessage());

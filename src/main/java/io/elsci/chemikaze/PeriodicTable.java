@@ -65,7 +65,7 @@ public final class PeriodicTable {
         byte[] symbol = EARTH_SYMBOLS_AS_BYTES[element];
         if(symbol[0] != b0 || symbol[1] != b1) {
             byte[] ascii = b1 == 0 ? new byte[] {b0} : new byte[]{b0, b1};
-            throw new IllegalArgumentException("Unrecognized element: " + new String(ascii));
+            throw new InvalidElementException(new String(ascii));
         }
         return element;
     }

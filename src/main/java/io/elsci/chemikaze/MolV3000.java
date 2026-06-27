@@ -3,6 +3,8 @@ package io.elsci.chemikaze;
 import java.nio.charset.StandardCharsets;
 
 import static java.lang.Character.isDigit;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 /** <a href="https://www.daylight.com/meetings/mug05/Kappler/ctfile.pdf">CTFILE spec</a> */
 public class MolV3000 {
@@ -45,8 +47,15 @@ public class MolV3000 {
         for(int j = 0; j < m.getAtomCount(); j++) {
             assertEqual(mol, LINE_START);
             int atomIdx = readInt(mol) - 1;
+            if (atomIdx == -1)
+                throw new InvalidChemStructureException("Expected a line with atom, but got: '" +
+                        getCurrentLineForError(mol) + "'. Is Atom Count from " + m.atoms.length +" correct? Or maybe atom position is less than 1?");
             i++;
-            m.atoms[atomIdx] = readChemSymbol(mol);
+            try {
+                m.atoms[atomIdx] = readChemSymbol(mol);
+            } catch (InvalidElementException e) {
+                throw new InvalidChemStructureException("Unrecognized element: " + e.element + " in the line '" + getCurrentLineForError(mol)+"'");
+            }
             skipAfter(mol, NL);
         }
     }
@@ -82,5 +91,22 @@ public class MolV3000 {
             if(data[i] == b)
                 break;
         i++;
+    }
+
+    private String getCurrentLineForError(byte[] data) {
+        int leftLimit = max(0, i - 50);
+        int left = i;
+        for (; left >= leftLimit; left--) {
+            if (data[left] == NL) {
+                left++;
+                break;
+            }
+        }
+
+        int rightLimit = min(i+50, data.length); // byte[10], i = 8
+        int right = i;
+        while (right < rightLimit && data[right] != NL)
+            right++;
+        return new String(data, left, right-left);
     }
 }

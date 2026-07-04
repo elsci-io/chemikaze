@@ -11,6 +11,7 @@ public class MolV3000 {
     private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] COUNTS_LINE = "M  V30 COUNTS ".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] BEGIN_ATOM = "M  V30 BEGIN ATOM\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] END_ATOM = "M  V30 END ATOM\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] LINE_START = "M  V30 ".getBytes(StandardCharsets.UTF_8);
     private static final byte NL = (byte) '\n';
     private int i;
@@ -40,6 +41,7 @@ public class MolV3000 {
 
         assertEqual(mol, BEGIN_ATOM);
         readAtoms(mol, m);
+        assertEqual(mol, END_ATOM);
         return m;
     }
 
@@ -75,14 +77,14 @@ public class MolV3000 {
     private void assertEqual(byte[] mol, byte[] section) {
         if(i + section.length >= mol.length)
             throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8),
-                    "Not a valid MOLV3000 format - didn't find section: " + new String(section)
-                            + ". Instead the structure ended prematurely: " + new String(mol, i, mol.length - i));
+                    "Not a valid MOLV3000 format - didn't find section: " + new String(section).trim()
+                            + ". Instead the structure ended prematurely: " + new String(mol, i, mol.length - i).trim());
         int j = 0;// character number within the line
         for(; j < section.length; j++)
             if(section[j] != mol[i+j])
                 throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8)
-                        , "Not a valid MOLV3000 format - didn't find section: " + new String(section)
-                        + ". Instead got: " + new String(mol, i, section.length));
+                        , "Not a valid MOLV3000 format - didn't find section: " + new String(section).trim()
+                        + ". Instead got: " + new String(mol, i, section.length).trim());
         i += j;
     }
 

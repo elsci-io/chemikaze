@@ -99,6 +99,19 @@ public class MolV3000Test {
         assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN ATOM. Instead got: M  V30 BEGIN ATOMM", e.getMessage());
     }
     @Test
+    public void errsIfNoBeginBondBlock() {
+        String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
+        String section = "M  V30 BEGIN BOND\n";
+
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol.replace(section, "m  V30 BEGIN BOND\n")));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN BOND. Instead got: m  V30 BEGIN BOND", e.getMessage());
+
+        e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol.replace(section, "\n")));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN BOND. Instead got: M  V30 END BOND\nM", e.getMessage());
+        e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol.replace(section, section.substring(0, section.length() - 1))));
+        assertEquals("Not a valid MOLV3000 format - didn't find section: M  V30 BEGIN BOND. Instead got: M  V30 BEGIN BONDM", e.getMessage());
+    }
+    @Test
     public void errsIfNoCountsLine() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol.replace("M  V30 COUNTS ", "m  V30 COUNTS ")));

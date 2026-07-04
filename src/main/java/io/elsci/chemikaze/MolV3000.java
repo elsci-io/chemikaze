@@ -11,6 +11,7 @@ public class MolV3000 {
     private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] COUNTS_LINE = "M  V30 COUNTS ".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] BEGIN_ATOM = "M  V30 BEGIN ATOM\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] BEGIN_BOND = "M  V30 BEGIN BOND\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] END_ATOM = "M  V30 END ATOM\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] LINE_START = "M  V30 ".getBytes(StandardCharsets.UTF_8);
     private static final byte NL = (byte) '\n';
@@ -42,6 +43,8 @@ public class MolV3000 {
         assertEqual(mol, BEGIN_ATOM);
         readAtoms(mol, m);
         assertEqual(mol, END_ATOM);
+
+        assertEqual(mol, BEGIN_BOND);
         return m;
     }
 

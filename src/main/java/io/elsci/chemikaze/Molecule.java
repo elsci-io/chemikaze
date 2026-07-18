@@ -1,16 +1,13 @@
 package io.elsci.chemikaze;
 
-/**
- * Can be an actual molecule or a multiple unconnected compoonents (like a salt). Has a list of atoms, as well as
- * bonnds between them.
- */
-public class Molecule {
-    /** Use {@code PeriodicTable.SYMBOLS[atom]} to conver it to human-readable name. */
-    byte[] atoms;
-    int[][] bonds;
-    byte[][] bondtypes;
+public interface Molecule {
+    byte getAtom(int atomidx);
+    int getAtomCnt();
+    int getBondCnt(int atomidx);
+    byte getBondType(int atomidx, int bondidx);
+    int getConnectedAtom(int atomidx, int bondidx);
 
-    int getAtomCount() {
-        return atoms.length;
+    static Molecule create(byte[] atoms) {
+        return new MoleculeBase0Bonds4Array(atoms);
     }
 }

@@ -23,9 +23,9 @@ public class CdkUtil {
             return;
         if(cdk == null || m == null)
             fail("\nExpected: " + cdk + ",\n     got: " + m);
-        assertEquals("Different number of atoms. Expected " + cdk + ",\n   got: " + m, cdk.getAtomCount(), m.getAtomCount());
-        for (int i = 0; i < m.atoms.length; i++) {
-            byte e = m.atoms[i];
+        assertEquals("Different number of atoms. Expected " + cdk + ",\n   got: " + m, cdk.getAtomCount(), m.getAtomCnt());
+        for (int i = 0; i < m.getAtomCnt(); i++) {
+            byte e = m.getAtom(i);
             if(cdk.getAtom(i).getAtomicNumber() != PeriodicTable.getAtomicNumber(e))
                 fail("Molecules weren't equal at atom #" + i + ", expected " + cdk.getAtom(i) + ",\n     got " + PeriodicTable.getElementSymbol(e));
         }

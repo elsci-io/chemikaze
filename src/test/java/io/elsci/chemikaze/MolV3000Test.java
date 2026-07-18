@@ -10,31 +10,33 @@ import static org.junit.Assert.assertThrows;
 
 public class MolV3000Test {
     @Test
-    public void readsOne() {
+    public void readsMethaneWithoutExplicitBonds() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Molecule m = readMol(mol);
+        assertEquals(1, m.getAtomCnt());
+        assertEquals(0, m.getBondCnt(0));
         assertMoleculesEqual(CdkUtil.fromMolV3000(mol), m);
     }
     @Test
     public void readsAtomCntLine() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Molecule m = readMol(mol);
-        assertEquals(1, m.getAtomCount());
+        assertEquals(1, m.getAtomCnt());
     }
     @Test
     public void readsAtoms() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Molecule m = readMol(mol);
-        assertEquals(1, m.getAtomCount());
-        assertEquals(PeriodicTable.getElementBySymbol("C"), m.atoms[0]);
+        assertEquals(1, m.getAtomCnt());
+        assertEquals(PeriodicTable.getElementBySymbol("C"), m.getAtom(0));
     }
     @Test
     public void readsMultipleAtoms() {
         String mol = IoUtils.getStringFromClasspath("molecules/co.ketcher.molv3000");
         Molecule m = readMol(mol);
-        assertEquals(2, m.getAtomCount());
-        assertEquals(PeriodicTable.getElementBySymbol("O"), m.atoms[0]);
-        assertEquals(PeriodicTable.getElementBySymbol("C"), m.atoms[1]);
+        assertEquals(2, m.getAtomCnt());
+        assertEquals(PeriodicTable.getElementBySymbol("O"), m.getAtom(0));
+        assertEquals(PeriodicTable.getElementBySymbol("C"), m.getAtom(1));
     }
     @Test
     public void errsWhenAtomCountLies_andIsGreaterThanActualAtomLines() {

@@ -1,6 +1,7 @@
 package io.elsci.chemikaze;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import static java.lang.Character.isDigit;
 import static java.lang.Math.max;
@@ -36,6 +37,8 @@ public class MolV3000 {
         assertEqual(mol, BEGIN_CTAB);
         assertEqual(mol, COUNTS_LINE);
         int atomCnt = readInt(mol);
+        i++;//skip space
+        int bondCnt = readInt(mol);
         skipAfter(mol, NL); // for now skip, we don't need the rest of the data
         // skipping the rest of the counts for now, will return to them later
         byte[] atoms = new byte[atomCnt];
@@ -44,10 +47,26 @@ public class MolV3000 {
         readAtoms(mol, atoms);
         assertEqual(mol, END_ATOM);
 
+        Molecule m = Molecule.create(atoms);
+
         assertEqual(mol, BEGIN_BOND);
-        // TODO: read the bonds
+        readBonds(mol, bondCnt, m);
         assertEqual(mol, END_BOND);
-        return Molecule.create(atoms);
+        return m;
+    }
+    private void readBonds(byte[] mol, int bondCnt, Molecule m) {
+        for (int j = 0; j < bondCnt; j++) {
+            assertEqual(mol, LINE_START);
+            i++;//skip space
+            readInt(mol); // not interested in the bond number
+            i++;//skip space
+            byte bondtype = (byte) readInt(mol);
+            int atom1idx = readInt(mol);
+            i++;//skip space
+            int atom2idx = readInt(mol);
+            m.setBond(atom1idx, atom2idx, bondtype);
+            skipAfter(mol, NL);
+        }
     }
 
     private void readAtoms(byte[] mol, byte[] atoms) {
@@ -57,7 +76,7 @@ public class MolV3000 {
             if (atomIdx == -1)
                 throw new InvalidChemStructureException("Expected a line with atom, but got: '" +
                         getCurrentLineForError(mol) + "'. Is Atom Count from " + atoms.length +" correct? Or maybe atom position is less than 1?");
-            i++;
+            i++;//skip space
             try {
                 atoms[atomIdx] = readChemSymbol(mol);
             } catch (InvalidElementException e) {

@@ -37,6 +37,10 @@ public class MolV3000Test {
         assertEquals(2, m.getAtomCnt());
         assertEquals(PeriodicTable.getElementBySymbol("O"), m.getAtom(0));
         assertEquals(PeriodicTable.getElementBySymbol("C"), m.getAtom(1));
+        assertEquals(1, m.getBondCnt(0));
+        assertEquals(1, m.getBondCnt(1));
+        assertEquals(2, m.getBondType(0, 0));
+        assertEquals(2, m.getBondType(1, 0));
     }
     @Test
     public void errsWhenAtomCountLies_andIsGreaterThanActualAtomLines() {

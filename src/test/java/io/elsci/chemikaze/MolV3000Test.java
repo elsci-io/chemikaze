@@ -42,6 +42,13 @@ public class MolV3000Test {
         assertEquals(2, m.getBondType(0, 0));
         assertEquals(2, m.getBondType(1, 0));
     }
+    // todo: write tests when there are more bonds or the counts are lying or the bondtype is invalid
+    @Test
+    public void errsWhenBondCountDoesNotMatchActualBondList() {
+        String mol = IoUtils.getStringFromClasspath("molecules/co.ketcher.molv3000").replace("M  V30 COUNTS 2 1 0 0 0", "M  V30 COUNTS 2 2 0 0 0");
+        Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol));
+        assertEquals("Invalid structure: Bond Count is 2, while the actual number of bonds is 1", e.getMessage());
+    }
     @Test
     public void errsWhenAtomCountLies_andIsGreaterThanActualAtomLines() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000").replace("M  V30 COUNTS 1", "M  V30 COUNTS 2");
@@ -52,7 +59,7 @@ public class MolV3000Test {
     public void errsWhenAtomPositionInAtomBlockIsLessThan1() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000").replace("M  V30 1 C", "M  V30 0 C");
         Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol));
-        assertEquals("Invalid structure: Expected a line with atom, but got: 'M  V30 0 C 12.225 -6.925 0.0 0'. Is Atom Count from 1 correct? Or maybe atom position is less than 1?", e.getMessage());
+        assertEquals("Invalid structure: Atoms #1 had an invalid index (either less than 1 or greater than the atom count): 0", e.getMessage());
     }
     @Test
     public void errsIfAtomBlockDidNotEnd() {

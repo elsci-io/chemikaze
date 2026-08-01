@@ -1,7 +1,6 @@
 package io.elsci.chemikaze;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
 import static java.lang.Character.isDigit;
 import static java.lang.Math.max;
@@ -10,10 +9,13 @@ import static java.lang.Math.min;
 /** <a href="https://www.daylight.com/meetings/mug05/Kappler/ctfile.pdf">CTFILE spec</a> */
 public class MolV3000 {
     private static final byte[] BEGIN_CTAB = "M  V30 BEGIN CTAB\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] END_CTAB = "M  V30 END CTAB\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] END_MOLECULE = "M  END".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] COUNTS_LINE = "M  V30 COUNTS ".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] BEGIN_ATOM = "M  V30 BEGIN ATOM\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] BEGIN_BOND = "M  V30 BEGIN BOND\n".getBytes(StandardCharsets.US_ASCII);
-    private static final byte[] END_BOND = "M  V30 END BOND\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] END_BOND_LINE = "M  V30 END BOND\n".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] END_BOND = "END BOND\n".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] END_ATOM = "M  V30 END ATOM\n".getBytes(StandardCharsets.US_ASCII);
     public static final byte[] LINE_START = "M  V30 ".getBytes(StandardCharsets.UTF_8);
     private static final byte NL = (byte) '\n';
@@ -34,8 +36,8 @@ public class MolV3000 {
         skipAfter(mol, NL);
         // for now skip the header too:
         skipAfter(mol, NL);
-        assertEqual(mol, BEGIN_CTAB);
-        assertEqual(mol, COUNTS_LINE);
+        skipOrThrow(mol, BEGIN_CTAB);
+        skipOrThrow(mol, COUNTS_LINE);
         int atomCnt = readInt(mol);
         i++;//skip space
         int bondCnt = readInt(mol);
@@ -43,39 +45,58 @@ public class MolV3000 {
         // skipping the rest of the counts for now, will return to them later
         byte[] atoms = new byte[atomCnt];
 
-        assertEqual(mol, BEGIN_ATOM);
+        skipOrThrow(mol, BEGIN_ATOM);
         readAtoms(mol, atoms);
-        assertEqual(mol, END_ATOM);
+        skipOrThrow(mol, END_ATOM);
 
         Molecule m = Molecule.create(atoms);
 
-        assertEqual(mol, BEGIN_BOND);
+        skipOrThrow(mol, BEGIN_BOND);
         readBonds(mol, bondCnt, m);
-        assertEqual(mol, END_BOND);
+        skipOrThrow(mol, END_BOND_LINE);
+        skipOrThrow(mol, END_CTAB);
+        skipOrThrow(mol, END_MOLECULE);
         return m;
     }
     private void readBonds(byte[] mol, int bondCnt, Molecule m) {
         for (int j = 0; j < bondCnt; j++) {
-            assertEqual(mol, LINE_START);
-            i++;//skip space
-            readInt(mol); // not interested in the bond number
+            skipOrThrow(mol, LINE_START);
+            try {
+                readInt(mol); // not interested in the bond number
+            } catch (NumberFormatException e) {
+                if(isEqual(mol, END_BOND))
+                    throw new InvalidChemStructureException("Bond Count is "+bondCnt+", while the actual number of bonds is "+j);
+                throw e;
+            }
             i++;//skip space
             byte bondtype = (byte) readInt(mol);
-            int atom1idx = readInt(mol);
             i++;//skip space
-            int atom2idx = readInt(mol);
+            int atom1idx = assertAtomIdxValid(m, readInt(mol) - 1);
+            i++;//skip space
+            int atom2idx = assertAtomIdxValid(m, readInt(mol) - 1);
             m.setBond(atom1idx, atom2idx, bondtype);
             skipAfter(mol, NL);
         }
     }
 
+    private static int assertAtomIdxValid(Molecule m, int atom1idx) {
+        if (atom1idx < 0 || atom1idx >= m.getAtomCnt())
+            throw new InvalidChemStructureException("One of the bonds referenced a non-existing atom number: " + (atom1idx+1));
+        return atom1idx;
+    }
+
     private void readAtoms(byte[] mol, byte[] atoms) {
         for(int j = 0; j < atoms.length; j++) {
-            assertEqual(mol, LINE_START);
-            int atomIdx = readInt(mol) - 1;
-            if (atomIdx == -1)
+            skipOrThrow(mol, LINE_START);
+            int atomIdx;
+            try {
+                atomIdx = readInt(mol) - 1;
+            } catch(NumberFormatException e) {
                 throw new InvalidChemStructureException("Expected a line with atom, but got: '" +
-                        getCurrentLineForError(mol) + "'. Is Atom Count from " + atoms.length +" correct? Or maybe atom position is less than 1?");
+                        getCurrentLineForError(mol) + "'. Is Atom Count from " + atoms.length + " correct? Or maybe atom position is less than 1?");
+            }
+            if(atomIdx < 0 || atomIdx >= atoms.length)
+                throw new InvalidChemStructureException("Atoms #"+(j+1)+" had an invalid index (either less than 1 or greater than the atom count): " + (atomIdx+1));
             i++;//skip space
             try {
                 atoms[atomIdx] = readChemSymbol(mol);
@@ -93,12 +114,37 @@ public class MolV3000 {
     }
     private int readInt(byte[] mol) {
         int result = 0;
-        while(isDigit(mol[i]))
-            result += (mol[i++] - '0') + result*10;
+        int j = i;
+        while(isDigit(mol[j]))
+            result += (mol[j++] - '0') + result*10;
+        if (i == j)
+            throw new NumberFormatException("Not a number: " + new String(mol, i, 5));
+        i = j;
         return result;
     }
 
-    private void assertEqual(byte[] mol, byte[] section) {
+    private boolean isEqual(byte[] mol, byte[] section) {
+        if(i + section.length >= mol.length)
+            return false;
+        int j = 0;// character number within the line
+        for(; j < section.length; j++)
+            if(section[j] != mol[i+j])
+                return false;
+        return true;
+    }
+    private boolean skip(byte[] mol, byte[] section) {
+        if(i + section.length >= mol.length)
+            throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8),
+                    "Not a valid MOLV3000 format - didn't find section: " + new String(section).trim()
+                            + ". Instead the structure ended prematurely: " + new String(mol, i, mol.length - i).trim());
+        int j = 0;// character number within the line
+        for(; j < section.length; j++)
+            if(section[j] != mol[i+j])
+                return false;
+        i += j;
+        return true;
+    }
+    private void skipOrThrow(byte[] mol, byte[] section) {
         if(i + section.length >= mol.length)
             throw new InvalidChemStructureException(new String(mol, StandardCharsets.UTF_8),
                     "Not a valid MOLV3000 format - didn't find section: " + new String(section).trim()

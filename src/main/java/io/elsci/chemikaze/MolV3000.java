@@ -93,7 +93,7 @@ public class MolV3000 {
                 atomIdx = readInt(mol) - 1;
             } catch(NumberFormatException e) {
                 throw new InvalidChemStructureException("Expected a line with atom, but got: '" +
-                        getCurrentLineForError(mol) + "'. Is Atom Count from " + atoms.length + " correct? Or maybe atom position is less than 1?");
+                        getCurrentLineForError(mol) + "'. Is Atom Count " + atoms.length + " correct?");
             }
             if(atomIdx < 0 || atomIdx >= atoms.length)
                 throw new InvalidChemStructureException("Atoms #"+(j+1)+" had an invalid index (either less than 1 or greater than the atom count): " + (atomIdx+1));
@@ -116,7 +116,7 @@ public class MolV3000 {
         int result = 0;
         int j = i;
         while(isDigit(mol[j]))
-            result += (mol[j++] - '0') + result*10;
+            result = (mol[j++] - '0') + result*10;
         if (i == j)
             throw new NumberFormatException("Not a number: " + new String(mol, i, 5));
         i = j;

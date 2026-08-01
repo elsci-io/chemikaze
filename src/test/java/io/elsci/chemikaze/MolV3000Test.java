@@ -18,6 +18,14 @@ public class MolV3000Test {
         assertMoleculesEqual(CdkUtil.fromMolV3000(mol), m);
     }
     @Test
+    public void readsBiggerMolecules() {
+        String mol = IoUtils.getStringFromClasspath("molecules/big-ugly.ketcher.molv3000");
+        Molecule m = readMol(mol);
+        assertEquals(12, m.getAtomCnt());
+        assertEquals(3, m.getBondCnt(0));
+        assertMoleculesEqual(CdkUtil.fromMolV3000(mol), m);
+    }
+    @Test
     public void readsAtomCntLine() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Molecule m = readMol(mol);
@@ -53,7 +61,7 @@ public class MolV3000Test {
     public void errsWhenAtomCountLies_andIsGreaterThanActualAtomLines() {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000").replace("M  V30 COUNTS 1", "M  V30 COUNTS 2");
         Exception e = assertThrows(InvalidChemStructureException.class, () -> readMol(mol));
-        assertEquals("Invalid structure: Expected a line with atom, but got: 'M  V30 END ATOM'. Is Atom Count from 2 correct? Or maybe atom position is less than 1?", e.getMessage());
+        assertEquals("Invalid structure: Expected a line with atom, but got: 'M  V30 END ATOM'. Is Atom Count 2 correct?", e.getMessage());
     }
     @Test
     public void errsWhenAtomPositionInAtomBlockIsLessThan1() {

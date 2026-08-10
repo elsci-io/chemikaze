@@ -7,62 +7,80 @@
     <groupId>io.elsci.chemikaze</groupId>
     <artifactId>chemikaze</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <modules>
+        <module>core</module>
+        <module>functional-groups</module>
+    </modules>
 
     <properties>
         <release>9</release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <cdk.version>2.11</cdk.version>
     </properties>
-    <dependencies>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openjdk.jmh</groupId>
-            <artifactId>jmh-generator-annprocess</artifactId>
-            <version>1.37</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.qala.datagen</groupId>
-            <artifactId>qala-datagen</artifactId>
-            <version>2.5.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.qala.datagen</groupId>
-            <artifactId>qala-datagen-java8types</artifactId>
-            <version>2.5.1</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openscience.cdk</groupId>
-            <artifactId>cdk-formula</artifactId>
-            <version>${cdk.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openscience.cdk</groupId>
-            <artifactId>cdk-data</artifactId>
-            <version>${cdk.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openscience.cdk</groupId>
-            <artifactId>cdk-ctab</artifactId>
-            <version>${cdk.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.openscience.cdk</groupId>
-            <artifactId>cdk-silent</artifactId>
-            <version>${cdk.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>4.13.1</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openjdk.jmh</groupId>
+                <artifactId>jmh-generator-annprocess</artifactId>
+                <version>1.37</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.qala.datagen</groupId>
+                <artifactId>qala-datagen</artifactId>
+                <version>2.5.1</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.qala.datagen</groupId>
+                <artifactId>qala-datagen-java8types</artifactId>
+                <version>2.5.1</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-formula</artifactId>
+                <version>${cdk.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-data</artifactId>
+                <version>${cdk.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-ctab</artifactId>
+                <version>${cdk.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-smiles</artifactId>
+                <version>${cdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-smarts</artifactId>
+                <version>${cdk.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-silent</artifactId>
+                <version>${cdk.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <build>
         <pluginManagement>
             <plugins>
@@ -72,6 +90,16 @@
                     <configuration>
                         <source>${release}</source>
                         <target>${release}</target>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>2.22.2</version>
+                    <configuration>
+                        <!-- Since Java9 private fields/methods aren't available even if setAccessible(true). We need to
+                         explicitly export modules' internals to other modules. Since we're not actually using modules yet,
+                          all the code is started in the unnamed module, hence ALL-UNNAMED -->
+                        <argLine>-Duser.language=en -Duser.region=US --add-opens java.base/java.time=ALL-UNNAMED</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -106,11 +134,11 @@
             </plugins>
         </pluginManagement>
         <plugins>
-<!-- Uncomment if you want GraalVM native build:  -->
-<!--            <plugin>-->
-<!--                <groupId>org.graalvm.buildtools</groupId>-->
-<!--                <artifactId>native-maven-plugin</artifactId>-->
-<!--            </plugin>-->
+            <!-- Uncomment if you want GraalVM native build:  -->
+            <!--            <plugin>-->
+            <!--                <groupId>org.graalvm.buildtools</groupId>-->
+            <!--                <artifactId>native-maven-plugin</artifactId>-->
+            <!--            </plugin>-->
         </plugins>
     </build>
 

@@ -8,6 +8,8 @@ import org.openscience.cdk.silent.SilentChemObjectBuilder;
 import org.openscience.cdk.smarts.SmartsPattern;
 import org.openscience.cdk.smiles.SmilesParser;
 
+import java.util.Map;
+
 import static org.junit.Assert.assertEquals;
 
 public class SmartsTest {
@@ -16,6 +18,76 @@ public class SmartsTest {
         SmartsPattern aldehydeSmarts = SmartsPattern.create("[O]=[$([H1]([#6])),$([H2]);C;X3]");
         assertEquals(0, matches(aldehydeSmarts, "CCC").countUnique());
         assertEquals(1, matches(aldehydeSmarts, "C1(F)C=CC=C2C(C=O)=CC(O)=CC=12").countUnique());
+    }
+
+    @Test
+    public void amines() {
+        Map<String, String[]> fgs = Map.of(
+                "Primary Amine Aliphatic", new String[]{"[NH2]-[C;!$(C=O)]",
+                        "NC", "Smallest Primary Amine Aliphatic",
+                        "NCC", "Primary Amine Aliphatic",
+                        "NCO", "Primary Amine Aliphatic, not Amide because of single bond to O",
+                        "NCCO", "Primary Amide because extra C in between",
+                        "C1C=CC=C(CN)C=1", "Benzilic Amine",
+                        "NC(C)C", "Amine connected to a branching C"},
+                "Secondary Amine Aliphatic", new String[]{null,
+                        "N(C)C", "Smallest Seconary Amine Aliphatic"},
+                "Primary Amine Aromatic", new String[]{"[NH2]-[c;!$(c=[#8])]",
+                        "C1C=CC=C(N)C=1", "Smallest Primary Amine Aromatic"},
+                "Secondary Amine Aromatic", new String[]{null, "C1C=CC=C(NC2C=CC=CC=2)C=1", "Smallest Primary Amine Secondary"}
+        );
+
+        assertStructuresMatchSmarts(fgs);
+    }
+
+    private static void assertStructuresMatchSmarts(Map<String, String[]> fgs) {
+        for (Map.Entry<String, String[]> entry : fgs.entrySet()) {
+            String smarts = entry.getValue()[0];
+            if(smarts == null)
+                continue; // some classes of compounds don't have SMARTS - they are only part of the test set, so skip testing their pattern
+            String fgnameUnderTest = entry.getKey();
+            SmartsPattern pattern = SmartsPattern.create(smarts);
+            for (Map.Entry<String, String[]> tests : fgs.entrySet()) {
+                String testsetName = tests.getKey();
+                if(testsetName.equals(fgnameUnderTest)) {
+                    // Testing against compounds of the class for which the SMARTS were created, expect 1 count:
+                    for (int i = 1; i < tests.getValue().length; i += 2) {
+                        String smiles = tests.getValue()[i];
+                        String descrip = tests.getValue()[i + 1];
+                        int matches = matches(pattern, smiles).countUnique();
+                        String errorMsg = String.format("Testing %s with SMARTS %s - got matches=%d against SMILES %s\nCompound description: %s", fgnameUnderTest, smarts, matches, smiles, descrip);
+                        assertEquals(errorMsg, 1, matches);
+                    }
+                } else {
+                    // Testing against other class compounds, don't expect a match:
+                    for (int i = 1; i < tests.getValue().length; i += 2) {
+                        String smiles = tests.getValue()[i];
+                        String descrip = tests.getValue()[i + 1];
+                        int matches = matches(pattern, smiles).countUnique();
+                        String errorMsg = String.format("Testing %s with SMARTS %s - got matches=%d against SMILES %s\nCompound description: %s", fgnameUnderTest, smarts, matches, smiles, descrip);
+                        assertEquals(errorMsg, 0, matches);
+                    }
+                }
+
+            }
+        }
+    }
+
+    private static void assertNotMatchesSmarts(String fgname, SmartsPattern smarts, String setname, String[] smilesAndDescription) {
+        for (int i = 0; i < smilesAndDescription.length; i+=2) {
+            String smiles = smilesAndDescription[i];
+            String descrip = smilesAndDescription[i+1];
+            int matches = matches(smarts, smiles).countUnique();
+            assertEquals(fgname +" pattern matched="+matches+" a "+ setname + " in SMILES: " +smiles + "\nTest case: " + descrip, 0, matches);
+        }
+    }
+    private static void assertMatchesSmarts(String fgname, SmartsPattern smarts, String setname, String[] smilesAndDescription) {
+        for (int i = 0; i < smilesAndDescription.length; i+=2) {
+            String smiles = smilesAndDescription[i];
+            String descrip = smilesAndDescription[i+1];
+            int matches = matches(smarts, smiles).countUnique();
+            assertEquals(fgname +" pattern matched="+matches+" a "+ setname + " in SMILES: " +smiles + "\nTest case: " + descrip, 1, matches);
+        }
     }
 
     @Test

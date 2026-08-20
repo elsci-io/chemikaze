@@ -60,7 +60,9 @@ public class SmartsTest {
                 "tButyl Ester", new String[]{"O(C([CH3])([CH3])[CH3])[CX3]=O",
                         "O(C(C)=O)C(C)(C)C", "Simplest tButyl Ester",
                         "O(C(C1C=CC=CC=1)=O)C(C)(C)C", "tButyl Ester w/ Bezene",
-                        "O(C(CC1C=CC=CC=1)=O)C(C)(C)C", "Benzyl Ester"}
+                        "O(C(CC1C=CC=CC=1)=O)C(C)(C)C", "Benzyl Ester"},
+                "Lactone", new String[]{null,
+                        "C1CCCOC1=O", "6-membered lactone"}
         ));
     }
 
@@ -125,7 +127,8 @@ public class SmartsTest {
                         String smiles = tests.getValue()[i];
                         String descrip = tests.getValue()[i + 1];
                         int matches = matches(pattern, smiles).countUnique();
-                        String errorMsg = String.format("Testing %s with SMARTS %s - got matches=%d against SMILES %s\nCompound description: %s", fgnameUnderTest, smarts, matches, smiles, descrip);
+                        String errorMsg = String.format("Testing %s with SMARTS %s - got matches=%d against SMILES %s\nCompound description: %s",
+                                fgnameUnderTest, smarts, matches, smiles, descrip);
                         assertEquals(errorMsg, 1, matches);
                     }
                 } else {
@@ -134,7 +137,8 @@ public class SmartsTest {
                         String smiles = tests.getValue()[i];
                         String descrip = tests.getValue()[i + 1];
                         int matches = matches(pattern, smiles).countUnique();
-                        String errorMsg = String.format("Testing %s with SMARTS %s - got matches=%d against SMILES %s\nCompound description: %s", fgnameUnderTest, smarts, matches, smiles, descrip);
+                        String errorMsg = String.format("Testing %s with SMARTS %s - got matches=%d against %s SMILES %s\nCompound description: %s",
+                                fgnameUnderTest, smarts, matches, testsetName, smiles, descrip);
                         assertEquals(errorMsg, 0, matches);
                     }
                 }

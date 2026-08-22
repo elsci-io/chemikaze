@@ -9,6 +9,6 @@ public interface Molecule {
     int getConnectedAtom(int atomidx, int bondidx);
 
     static Molecule create(byte[] atoms) {
-        return new MoleculeBase0Bonds4Array(atoms);
+        return new MoleculeSimple(atoms);
     }
 }

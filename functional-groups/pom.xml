@@ -13,6 +13,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>${groupId}</groupId>
+            <artifactId>core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.openscience.cdk</groupId>
             <artifactId>cdk-smarts</artifactId>
         </dependency>

@@ -45,7 +45,13 @@
         </dependency>
         <dependency>
             <groupId>org.openscience.cdk</groupId>
+            <artifactId>cdk-smiles</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openscience.cdk</groupId>
             <artifactId>cdk-silent</artifactId>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 </project>

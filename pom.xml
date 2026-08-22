@@ -21,6 +21,16 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>${groupId}</groupId>
+                <artifactId>functional-groups</artifactId>
+                <version>${version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${groupId}</groupId>
+                <artifactId>core</artifactId>
+                <version>${version}</version>
+            </dependency>
+            <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>4.13.1</version>
@@ -66,6 +76,7 @@
                 <groupId>org.openscience.cdk</groupId>
                 <artifactId>cdk-smiles</artifactId>
                 <version>${cdk.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.openscience.cdk</groupId>

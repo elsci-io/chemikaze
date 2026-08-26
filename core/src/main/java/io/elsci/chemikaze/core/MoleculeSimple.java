@@ -1,34 +1,34 @@
 package io.elsci.chemikaze.core;
 
 public class MoleculeSimple implements Molecule {
-    byte[] atoms;
+    byte[] elements;
     byte[] bondcnts;
-    int[][] bonds;
+    int[][] neighbors;
     byte[][] bondtypes;
 
-    public MoleculeSimple(byte[] atoms) {
-        this.atoms = atoms;
-        this.bondcnts = new byte[atoms.length];
-        this.bonds = new int[atoms.length][4];
-        this.bondtypes = new byte[atoms.length][4];
+    public MoleculeSimple(byte[] elements) {
+        this.elements = elements;
+        this.bondcnts = new byte[elements.length];
+        this.neighbors = new int[elements.length][4];
+        this.bondtypes = new byte[elements.length][4];
     }
 
-    public byte getAtom(int atomidx) {
-        return atoms[atomidx];
+    public byte getElement(int atom) {
+        return elements[atom];
     }
     public int getAtomCnt() {
-        return atoms.length;
+        return elements.length;
     }
-    public int getBondCnt(int atomidx) {
-        return bondcnts[atomidx];
+    public int getBondCnt(int atom) {
+        return bondcnts[atom];
     }
-    public byte getBondType(int atomidx, int bondidx) {
-        assertBondExists(atomidx, bondidx);
-        return bondtypes[atomidx][bondidx];
+    public byte getBondType(int atom, int bond) {
+        assertBondExists(atom, bond);
+        return bondtypes[atom][bond];
     }
     public void setBond(int a1, int a2, byte bondtype) {
-        int bondidx = ArrayUtils.indexOf(bonds[a1], 0, bondcnts[a1], a2);
-        if(bondidx >= 0) {
+        int bond = ArrayUtils.indexOf(neighbors[a1], 0, bondcnts[a1], a2);
+        if(bond >= 0) {
             setBondTypeLeftSide(a1, a2, bondtype);
             setBondTypeLeftSide(a2, a1, bondtype);
         } else {
@@ -37,34 +37,39 @@ public class MoleculeSimple implements Molecule {
         }
         assert isConnected(a1, a2);
     }
-    public int getConnectedAtom(int atomidx, int bondidx) {
-        assertBondExists(atomidx, bondidx);
-        return bonds[atomidx][bondidx];
+    public int getConnectedAtom(int atom, int bond) {
+        assertBondExists(atom, bond);
+        return neighbors[atom][bond];
     }
+
+    /**
+     * Atoms bond with each other bidirectionally, but this helper func adds the bond only to one side. Call it by
+     * passing x and y, then y and x - and you got yourself a bidi connection.
+     */
     private void setBondTypeLeftSide(int a1, int a2, byte bondtype) {
-        int bondidx = ArrayUtils.indexOf(bonds[a1], 0, bondcnts[a1], a2);
-        assert bondidx >= 0;
-        bondtypes[a1][bondidx] = bondtype;
+        int bond = ArrayUtils.indexOf(neighbors[a1], 0, bondcnts[a1], a2);
+        assert bond >= 0;
+        bondtypes[a1][bond] = bondtype;
     }
-    private void addNewBondLeftSide(int atom1idx, int atom2idx, byte bondtype) {
-        int a1bondcnt = bondcnts[atom1idx];
-        ArrayUtils.extendArrayIfFull(bonds, atom1idx, a1bondcnt+1);
-        ArrayUtils.extendArrayIfFull(bondtypes, atom1idx, a1bondcnt+1);
-        bonds[atom1idx][a1bondcnt] = atom2idx;
-        bondtypes[atom1idx][a1bondcnt] = bondtype;
-        bondcnts[atom1idx]++;
+    private void addNewBondLeftSide(int a1, int a2, byte bondtype) {
+        int a1bondcnt = bondcnts[a1];
+        ArrayUtils.extendArrayIfFull(neighbors, a1, a1bondcnt+1);
+        ArrayUtils.extendArrayIfFull(bondtypes, a1, a1bondcnt+1);
+        neighbors[a1][a1bondcnt] = a2;
+        bondtypes[a1][a1bondcnt] = bondtype;
+        bondcnts[a1]++;
     }
-    private boolean isConnected(int a1idx, int a2idx) {
-        int bondCnt = getBondCnt(a1idx);
-        int[] a1bonds = bonds[a1idx];
+    private boolean isConnected(int a1, int a2) {
+        int bondCnt = getBondCnt(a1);
+        int[] a1neighbors = neighbors[a1];
         for(int i = 0; i < bondCnt; i++)
-            if(a1bonds[i] == a2idx)
+            if(a1neighbors[i] == a2)
                 return true;
         return false;
     }
-    private void assertBondExists(int aidx, int bidx) {
-        if(getBondCnt(aidx) < bidx)
-            throw new IndexOutOfBoundsException("Bond #" + bidx+" does not exist, there are only " + getBondCnt(aidx) + " bonds");
+    private void assertBondExists(int atom, int bond) {
+        if(getBondCnt(atom) < bond)
+            throw new IndexOutOfBoundsException("Bond #" + bond+" does not exist, there are only " + getBondCnt(atom) + " bonds");
     }
 
 }

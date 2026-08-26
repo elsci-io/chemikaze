@@ -80,6 +80,12 @@
             </dependency>
             <dependency>
                 <groupId>org.openscience.cdk</groupId>
+                <artifactId>cdk-inchi</artifactId>
+                <version>${cdk.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.openscience.cdk</groupId>
                 <artifactId>cdk-smarts</artifactId>
                 <version>${cdk.version}</version>
                 <scope>test</scope>

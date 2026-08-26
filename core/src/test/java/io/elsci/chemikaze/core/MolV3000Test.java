@@ -36,15 +36,15 @@ public class MolV3000Test {
         String mol = IoUtils.getStringFromClasspath("molecules/methane.ketcher.molv3000");
         Molecule m = readMol(mol);
         assertEquals(1, m.getAtomCnt());
-        assertEquals(PeriodicTable.getElementBySymbol("C"), m.getAtom(0));
+        assertEquals(PeriodicTable.getElementBySymbol("C"), m.getElement(0));
     }
     @Test
     public void readsMultipleAtoms() {
         String mol = IoUtils.getStringFromClasspath("molecules/co.ketcher.molv3000");
         Molecule m = readMol(mol);
         assertEquals(2, m.getAtomCnt());
-        assertEquals(PeriodicTable.getElementBySymbol("O"), m.getAtom(0));
-        assertEquals(PeriodicTable.getElementBySymbol("C"), m.getAtom(1));
+        assertEquals(PeriodicTable.getElementBySymbol("O"), m.getElement(0));
+        assertEquals(PeriodicTable.getElementBySymbol("C"), m.getElement(1));
         assertEquals(1, m.getBondCnt(0));
         assertEquals(1, m.getBondCnt(1));
         assertEquals(2, m.getBondType(0, 0));

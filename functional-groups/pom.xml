@@ -26,6 +26,10 @@
         </dependency>
         <dependency>
             <groupId>org.openscience.cdk</groupId>
+            <artifactId>cdk-inchi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.openscience.cdk</groupId>
             <artifactId>cdk-silent</artifactId>
         </dependency>
         <dependency>

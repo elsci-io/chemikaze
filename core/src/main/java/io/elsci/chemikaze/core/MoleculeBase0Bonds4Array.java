@@ -22,8 +22,8 @@ public class MoleculeBase0Bonds4Array implements Molecule {
         Arrays.fill(bondtypes, (byte) -1);
     }
 
-    public byte getAtom(int idx) {
-        return atoms[idx];
+    public byte getElement(int atom) {
+        return atoms[atom];
     }
 
     public int getAtomCnt() {

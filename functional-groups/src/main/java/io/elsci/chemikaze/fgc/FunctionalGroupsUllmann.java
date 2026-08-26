@@ -13,9 +13,9 @@ public class FunctionalGroupsUllmann implements FunctionalGroups {
     private static final int UNMAPPED = -1;
 
     public int[][] match(Molecule target, Molecule query) {
-        int queryElement = query.getAtom(0);
+        int queryElement = query.getElement(0);
         for (int targetAtom = 0; targetAtom < target.getAtomCnt(); targetAtom++) {
-            if (queryElement != target.getAtom(targetAtom))
+            if (queryElement != target.getElement(targetAtom))
                 continue;
             int[] atommap = new int[query.getAtomCnt()];
             Arrays.fill(atommap, UNMAPPED);
@@ -41,7 +41,7 @@ public class FunctionalGroupsUllmann implements FunctionalGroups {
         int bondCnt = query.getBondCnt(queryatom);
         for (int b = 0; b < bondCnt; b++) {
             int connectedAtom = query.getConnectedAtom(queryatom, b);
-            if (atommap[connectedAtom] >= 0) // has been visited and mapped already
+            if (atommap[connectedAtom] != UNMAPPED) // has been visited and mapped already
                 continue;
             for (int targetbond = 0; targetbond < target.getBondCnt(targetatom); targetbond++)
                  // todo:

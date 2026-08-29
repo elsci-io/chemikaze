@@ -8,7 +8,7 @@ import static org.junit.Assert.assertArrayEquals;
 public class FunctionalGroupsUllmannTest {
     @Test
     public void findsOneAlocohol() {
-        assertArrayEquals(new int[][]{{2, 1}}, match("CCO", "CO"));
+        assertArrayEquals(new int[][]{{1, 2}}, match("CCO", "CO"));
 //        assertArrayEquals(new int[][]{{2, 1}}, match("CCCO", "CO"));
     }
 

@@ -5,7 +5,7 @@ import io.elsci.chemikaze.core.Molecule;
 import java.util.Arrays;
 
 // TODO:
-//  - Do the actual matching of elements and filling the connection map
+//  - Find all the matching paths, not just the first one
 //  - Query isn't necessarily just a structure, it may be something more sophisticated like match any element on
 //    the list or match N that has some specific bond number / type
 //
@@ -19,7 +19,8 @@ public class FunctionalGroupsUllmann implements FunctionalGroups {
                 continue;
             int[] atommap = new int[query.getAtomCnt()];
             Arrays.fill(atommap, UNMAPPED);
-            dfs(target, targetAtom, query, 0, atommap);
+            if(dfs(target, targetAtom, query, 0, atommap, 0))
+                return new int[][]{atommap};
         }
         return new int[0][];
     }
@@ -35,19 +36,22 @@ public class FunctionalGroupsUllmann implements FunctionalGroups {
      *                atom. It's filled with -1 initially, and as we find more atoms that match the query we fill more
      *                indices.
      */
-    private void dfs(Molecule target, int targetatom, Molecule query, int queryatom, int[] atommap) {
+    private boolean dfs(Molecule target, int targetatom, Molecule query, int queryatom, int[] atommap, int mappedCnt) {
         atommap[queryatom] = targetatom;
-        System.out.println(queryatom);
+        if(++mappedCnt == atommap.length) // visited all the query atoms already?
+            return true;
         int bondCnt = query.getBondCnt(queryatom);
         for (int b = 0; b < bondCnt; b++) {
-            int connectedAtom = query.getConnectedAtom(queryatom, b);
-            if (atommap[connectedAtom] != UNMAPPED) // has been visited and mapped already
+            int queryNeighbor = query.getConnectedAtom(queryatom, b);
+            if (atommap[queryNeighbor] != UNMAPPED) // has been visited and mapped already
                 continue;
-            for (int targetbond = 0; targetbond < target.getBondCnt(targetatom); targetbond++)
-                 // todo:
-                 //  - check if the target atom has been visited and mapped already
-                 //  - do the actual match between the queryelement and targetelement
-                 dfs(target, target.getConnectedAtom(targetatom, targetbond), query, connectedAtom, atommap);
+            for (int targetbond = 0; targetbond < target.getBondCnt(targetatom); targetbond++){
+                int targetNeighbor = target.getConnectedAtom(targetatom, targetbond);
+                if (target.getElement(targetNeighbor) == query.getElement(queryNeighbor))
+                    if(dfs(target, targetNeighbor, query, queryNeighbor, atommap, mappedCnt))
+                        return true;
+            }
         }
+        return false;
     }
 }

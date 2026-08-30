@@ -19,8 +19,10 @@ public class FunctionalGroupsUllmann implements FunctionalGroups {
                 continue;
             int[] atommap = new int[query.getAtomCnt()];
             Arrays.fill(atommap, UNMAPPED);
-            if(dfs(target, targetAtom, query, 0, atommap, 0))
+            if(dfs(target, targetAtom, query, 0, atommap, 0)) {
+                Arrays.sort(atommap);
                 return new int[][]{atommap};
+            }
         }
         return new int[0][];
     }

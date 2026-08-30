@@ -9,7 +9,7 @@ public class FunctionalGroupsUllmannTest {
     @Test
     public void findsOneAlocohol() {
         assertArrayEquals(new int[][]{{1, 2}}, match("CCO", "CO"));
-//        assertArrayEquals(new int[][]{{2, 1}}, match("CCCO", "CO"));
+        assertArrayEquals(new int[][]{{4, 5}}, match("C1C=CC=C(N)C=1", "NC"));
     }
 
     private static int[][] match(String target, String query) {
